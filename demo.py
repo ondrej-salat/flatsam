@@ -6,7 +6,7 @@ All paths/logins come from .env (copy .env.example). Examples:
     python demo.py dataset pot V24_3
     python demo.py video clip.mp4 --corners x1 y1 x2 y2 x3 y3 x4 y4
     python demo.py params                          # list every tunable key + current value
-    python demo.py dataset pot V24_3 --set loma.inlier_threshold=40 --set symmetry.match_tau_px=20
+    python demo.py dataset pot V24_3 --set loma.inlier_threshold=40 --set loma.agree_min_inliers=10
 """
 
 import argparse
@@ -140,7 +140,7 @@ def main() -> None:
     common = argparse.ArgumentParser(add_help=False)
     common.add_argument("--config", type=Path,
                         default=Path(os.environ.get("DEMO_CONFIG",
-                                                    "configs/tracker/loma_samh_matchnaming.py")),
+                                                    "configs/tracker/flatsam_final.py")),
                         help="Base tracker config (default: DEMO_CONFIG from .env).")
     common.add_argument("--set", action="append", default=[], metavar="KEY=VALUE",
                         help="Override one config value, repeatable; keys from `params`.")

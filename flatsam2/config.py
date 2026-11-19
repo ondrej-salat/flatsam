@@ -236,6 +236,40 @@ class LoMaPathConfig(BaseModel):
     inlier_threshold: int = Field(
         default=35, description="Use LoMa when its inlier count reaches this threshold"
     )
+    agree_min_inliers: int = Field(
+        default=0,
+        ge=0,
+        description=(
+            "Decoupled path only. Width of the agreement band below inlier_threshold: with "
+            "agree_min_inliers < n < inlier_threshold, LoMa is still used if its quad agrees "
+            "with the SAM-H (Hough) quad on agree_min_corners corners within agree_tol_px "
+            "(default: the RANSAC threshold; up to a cyclic corner shift); otherwise the mask branch is "
+            "used. 0 disables the band (LoMa only at n >= inlier_threshold)."
+        ),
+    )
+    agree_min_corners: int = Field(
+        default=2, ge=1, le=4, description="Corners that must agree in the agreement band"
+    )
+    agree_tol_px: Optional[float] = Field(
+        default=None,
+        gt=0.0,
+        description=(
+            "Corner tolerance (px) of the agreement test. None uses ransac_threshold, i.e. the "
+            "same tolerance RANSAC applies to a match."
+        ),
+    )
+    gate_orientation_min_inliers: int = Field(
+        default=0,
+        ge=0,
+        description=(
+            "Decoupled path only. On frames where LoMa produced a pose with at "
+            "least this many RANSAC inliers, measure the cyclic corner shift "
+            "that brings the SAM-H quad closest to it; when the gate picks the "
+            "SAM-H pose, its corners are shifted by the last measured value "
+            "(carried over frames without enough inliers). Applied to the "
+            "output only: the SAM-H branch's own state is untouched. 0 disables."
+        ),
+    )
     densify_mask: Literal["selected", "candidate_union"] = Field(
         default="selected",
         description=(
@@ -324,6 +358,44 @@ class CorrectionCfg(BaseModel):
         validate_assignment = True
 
 
+class FullObjectCfg(BaseModel):
+    """Full-object template: use the whole planar object the GT region lies on.
+
+    On frame 0 SAM3 is clicked at the GT center and the centers of its four quarters; the
+    middle-sized mask of each click is merged. The merged mask is accepted when
+    ``full_object.accept_full_object`` passes: it has a four-corner quad, the quad is
+    ``min_area_ratio``-``max_area_ratio`` x the GT area and covers ``min_gt_coverage``
+    of the GT, and the mask does not touch the image border. The defaults are the shipped
+    rule.
+
+    An accepted mask replaces the GT as the template: SAM3 follows it and both branches use
+    it. Output stays the GT corners warped by the shared plane homography.
+    """
+
+    enabled: bool = Field(default=False, description="Search for a whole-object template")
+    min_area_ratio: float = Field(
+        default=1.3,
+        description="(Hull quad area / GT area) needed to accept the merged mask",
+    )
+    max_area_ratio: Optional[float] = Field(
+        default=2.0,
+        description="(Hull quad area / GT area) above which the merged mask is rejected",
+    )
+    min_gt_coverage: float = Field(
+        default=0.9,
+        description="Fraction of GT pixels the hull quad must cover",
+    )
+    allow_border: bool = Field(
+        default=False,
+        description="Accept a merged mask that touches the image border",
+    )
+
+    class Config:
+        """Pydantic config."""
+
+        validate_assignment = True
+
+
 class TrackerConfig(BaseModel):
     """Complete tracker configuration.
 
@@ -338,6 +410,7 @@ class TrackerConfig(BaseModel):
         fallback_to_mask_H: use ``mask_H`` directly when flow + ``mask_H`` prewarp both fail
         loma: optional online LoMa homography path
         correction: optional SAM3 self-correction config
+        full_object: optional whole-object template search on frame 0
         algorithm: explicit control-flow discriminator, ``flow_hough`` or
             ``loma_samh``. When ``None`` it is derived from ``loma.enabled``.
             When set explicitly it must agree with that derivation, otherwise a
@@ -364,6 +437,7 @@ class TrackerConfig(BaseModel):
     )
     loma: LoMaPathConfig = Field(default_factory=LoMaPathConfig)
     correction: CorrectionCfg = Field(default_factory=CorrectionCfg)
+    full_object: FullObjectCfg = Field(default_factory=FullObjectCfg)
     algorithm: Optional[Algorithm] = Field(
         default=None,
         description=(

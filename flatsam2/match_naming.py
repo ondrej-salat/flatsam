@@ -220,3 +220,32 @@ def name_by_match_support(
     if best == 0:
         return corners, 0, support
     return np.roll(corners, best, axis=1), best, support
+
+
+def name_by_reference(
+    corners: np.ndarray, reference: np.ndarray
+) -> Tuple[np.ndarray, int]:
+    """Re-name a pose's corners to the cyclic shift closest to a reference pose.
+
+    Used at the gate: the reference is the final keypoint pose of the same
+    frame, whose corner labelling is fixed by its matches. Nothing is passed to
+    the branch that produced ``corners``.
+
+    Args:
+        corners: (2, 4) pose to name.
+        reference: (2, 4) pose with trusted corner order.
+
+    Returns:
+        Tuple ``(corners (2, 4), shift)``; ``shift`` is the applied cyclic shift
+        in ``0``-``3`` (``0``: kept). Ties keep the incumbent naming.
+    """
+    dist = np.array(
+        [
+            np.linalg.norm(np.roll(corners, k, axis=1) - reference, axis=0).sum()
+            for k in range(4)
+        ]
+    )
+    best = int(np.argmin(dist))
+    if not np.isfinite(dist[best]) or dist[best] >= dist[0]:
+        return corners, 0
+    return np.roll(corners, best, axis=1), best

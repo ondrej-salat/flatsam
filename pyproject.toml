@@ -11,7 +11,7 @@ dependencies = [
   "torchvision==0.22.1",
   # "Triton==3.5.0",
   "ptlflow @ git+https://github.com/hmorimitsu/ptlflow@844b51e2a75e876823deeda53be7abf90e413178",
-  "sam3 @ git+https://github.com/serycjon/sam3@0febedec6efe4cc622b0908b3788add56219b79c",
+  "sam3",  # modified copy in third_party/sam3, installed by setup.sh
   "lomatch @ git+https://github.com/davnords/LoMa@8fb59c458f2a2ef44314f462467b229c27786bf0",
   # additional dependencies
   "numpy",

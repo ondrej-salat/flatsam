@@ -1,6 +1,6 @@
 import logging
 import traceback
-from typing import Optional
+from typing import Optional, Tuple
 
 import numpy as np
 import cv2
@@ -10,7 +10,7 @@ import ptlflow
 from ptlflow.utils.io_adapter import IOAdapter
 from sam3 import SAM3StreamingTracker
 
-from flatsam2 import match_naming
+from flatsam2 import full_object, gate, match_naming
 from flatsam2.config import LoMaPathConfig, TrackerConfig
 from flatsam2.datasets import warp_corners
 from flatsam2.geometry import warp_points
@@ -109,6 +109,8 @@ class FlatSAMTracker:
         # Per-frame mask-H observables (Hough availability, corner naming).
         self._maskh_telemetry = MaskHTelemetry()
         self._loma_last_matches: Optional[tuple] = None
+        # Cyclic corner shift last measured between the SAM-H and LoMa quads (gate orientation).
+        self._gate_orient_offset: int = 0
         # Per-frame override for LoMa keypoint sampling (candidate-union densify).
         # None keeps the selected SAM3 mask as the sampling region.
         self._loma_densify_mask: Optional[np.ndarray] = None
@@ -184,6 +186,12 @@ class FlatSAMTracker:
         if init_mask is None and init_corners is not None:
             init_mask = self._corners_to_mask(init_corners, init_frame.shape[:2])
 
+        # Track the whole planar object the GT lies on, when SAM3 finds an acceptable one.
+        if self.cfg.full_object.enabled and init_corners is not None:
+            init_mask, init_corners = self._full_object_template(
+                init_frame, init_mask, init_corners
+            )
+
         # Initialize state
         self.state = TrackerState()
         self.state.init_frame = init_frame.copy()
@@ -199,6 +207,7 @@ class FlatSAMTracker:
         self._corr_telemetry = CorrectionTelemetry()
         self._maskh_telemetry = MaskHTelemetry()
         self._loma_last_matches = None
+        self._gate_orient_offset = 0
 
         # Initialize SAM3 segmenter with the first frame (skipped when sharing an
         # already-initialised segmenter, e.g. the decoupled SAM-H sub-tracker).
@@ -246,6 +255,36 @@ class FlatSAMTracker:
                 init_corners=init_corners,
                 init_segmenter=False,
             )
+
+    def _full_object_template(
+        self, frame: np.ndarray, gt_mask: np.ndarray, gt_corners: np.ndarray
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """The whole planar object the GT lies on, if SAM3 finds an acceptable one.
+
+        Five clicks inside the GT, the middle mask of each merged by majority vote, its hull
+        quad snapped to the Hough line intersections the mask branch measures every frame;
+        used when ``full_object.accept_full_object`` passes.
+
+        Args:
+            frame: (H, W, 3) uint8 BGR first frame.
+            gt_mask: (H, W) uint8 GT region mask.
+            gt_corners: (2, 4) GT corners.
+
+        Returns:
+            ``(mask (H, W) uint8, corners (2, 4))`` of the whole object, or the GT pair
+            unchanged when the merged mask is rejected.
+        """
+        click_masks = np.stack([
+            full_object.sam3_point_masks(self.segmenter, frame, point)
+            for point in full_object.click_points(gt_corners)
+        ])  # (5, 3, H, W)
+        mask = full_object.merged_middle_mask(click_masks)
+        hull = full_object.quad_from_mask(mask, gt_corners) if mask.any() else None
+        snapped = None if hull is None else full_object.snap_quad(mask, hull, self.cfg.hough)
+        features = full_object.template_features(mask, gt_mask > 0, hull, snapped)
+        if not full_object.accept_full_object(features, self.cfg.full_object):
+            return gt_mask, gt_corners
+        return np.uint8(mask) * 255, hull if snapped is None else snapped
 
     @staticmethod
     def _corners_to_mask(corners: np.ndarray, image_shape: tuple) -> np.ndarray:
@@ -523,11 +562,14 @@ class FlatSAMTracker:
         n_inliers: int,
         samh_H: np.ndarray,
     ) -> np.ndarray:
-        """Pick LoMa vs the independent SAM-H estimate by the inlier rule.
+        """Pick LoMa vs the independent SAM-H estimate by the gate (``flatsam2.gate``).
 
-        Use LoMa when its inlier count reaches ``inlier_threshold``, otherwise use the SAM-H sub-tracker's
-        estimate (which always has a result — it keeps its last homography on
-        failure). Neither choice feeds back into the other chain.
+        Use LoMa when its inlier count reaches ``inlier_threshold`` (or, in the
+        agreement band, when its quad agrees with the SAM-H quad), otherwise use
+        the SAM-H sub-tracker's estimate (which always has a result — it keeps
+        its last homography on failure), with its corners re-labelled by the
+        gate orientation when enabled. Neither choice feeds back into the other
+        chain.
 
         Args:
             loma_H: LoMa homography for this frame, or None on failure.
@@ -537,10 +579,44 @@ class FlatSAMTracker:
         Returns:
             The selected homography (3, 3).
         """
-        if loma_H is not None and n_inliers >= self.cfg.loma.inlier_threshold:
+        init_corners = self.state.init_corners
+        label, chosen = gate.select_pose(
+            loma_H,
+            n_inliers,
+            samh_H,
+            init_corners,
+            inlier_threshold=self.cfg.loma.inlier_threshold,
+            agree_min_inliers=self.cfg.loma.agree_min_inliers,
+            agree_min_corners=self.cfg.loma.agree_min_corners,
+            agree_tol_px=(
+                self.cfg.loma.agree_tol_px
+                if self.cfg.loma.agree_tol_px is not None
+                else self.cfg.loma.ransac_threshold
+            ),
+        )
+        if label == gate.LOMA:
             self._loma_last_selected = _CANDIDATE_LOMA
-            return loma_H
+            return chosen
         self._loma_last_selected = _CANDIDATE_SAMH
+        min_inl = self.cfg.loma.gate_orientation_min_inliers
+        if min_inl > 0 and init_corners is not None:
+            # Corner order from the final keypoint pose, kept at the gate: the
+            # SAM-H quad's labelling differs from the true one by a constant
+            # cyclic shift while its chain is continuous, so the shift measured
+            # on frames where LoMa has a pose is carried over frames where it
+            # has none. Nothing goes back into the SAM-H branch.
+            samh_corners = warp_corners(samh_H, init_corners)
+            if loma_H is not None and n_inliers >= min_inl:
+                _, self._gate_orient_offset = match_naming.name_by_reference(
+                    samh_corners, warp_corners(loma_H, init_corners)
+                )
+            shift = self._gate_orient_offset
+            if shift > 0:
+                resolved = match_naming.homography_from_corners(
+                    init_corners, np.roll(samh_corners, shift, axis=1)
+                )
+                if resolved is not None:
+                    return resolved
         return samh_H
 
     def _choose_loma_or_mask(

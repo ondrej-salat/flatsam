@@ -27,7 +27,7 @@ from flatsam2.datasets import (
     make_image_paths,
     warp_corners,
 )
-from flatsam2.path_config import paths
+from flatsam2.path_config import DEFAULT_CONFIG, paths
 from flatsam2.reproducibility import save_run_info
 from flatsam2.tracker import _DEBUG_CANDIDATES, FlatSAMTracker, TrackResult
 from flatsam2.tracking.common import CorrectionTelemetry, MaskHTelemetry
@@ -120,7 +120,7 @@ def run_sequence(
                 if result.correction_mask is not None:
                     corr_path = seq_output_dir / f"{frame_idx + 1:05d}_corr.png"
                     cv2.imwrite(str(corr_path), np.uint8(result.correction_mask) * 255)
-    _save_debug(debug_records, debug_frame_ids, output_dir, seq_name)
+    _save_debug(debug_records, debug_frame_ids, output_dir, seq_name, tracker.state.init_corners)
     return all_corners
 
 
@@ -132,6 +132,7 @@ def _save_debug(
     frame_ids: list,
     output_dir: Path,
     seq_name: str,
+    template_corners: Optional[np.ndarray] = None,
 ) -> None:
     """Save per-frame tracker telemetry to ``{seq_name}_debug.npz``.
 
@@ -144,6 +145,8 @@ def _save_debug(
     (``flow_H``, ``redetection_flow_H``, ``mask_H``, ``loma_H``, ``samh_H``):
         <cand>        — (T, 3, 3), NaN when the candidate was not computed
     plus:
+        template_corners — (2, 4) frame-0 corners the tracker followed; differs from
+            the GT corners when the full-object template was accepted (refine.py reads it)
         frame_idx — (T,) int32, 0-based frame index in the sequence
         selected  — (T,) str, candidate actually used (e.g. 'loma_H', 'samh_H')
         corrected — (T,) bool, whether a SAM3 self-correction fired this frame
@@ -177,6 +180,8 @@ def _save_debug(
 
     arrays: dict[str, np.ndarray] = {}
     arrays["frame_idx"] = np.array(frame_ids, dtype=np.int32)
+    if template_corners is not None:
+        arrays["template_corners"] = template_corners
 
     for candidate_name in _DEBUG_CANDIDATES:
         H_list = []
@@ -474,7 +479,8 @@ def main() -> int:
     parser.add_argument(
         "--config",
         type=Path,
-        help="Path to Python config file (if not specified, uses defaults)",
+        default=DEFAULT_CONFIG,
+        help="Path to Python config file (default: the final method, DEMO_CONFIG in .env)",
     )
     parser.add_argument(
         "--deterministic",

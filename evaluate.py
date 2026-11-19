@@ -22,7 +22,7 @@ from flatsam2.datasets import (
     make_gt_loader,
 )
 from flatsam2.metrics import aggregate_results, evaluate_sequence
-from flatsam2.path_config import paths
+from flatsam2.path_config import DEFAULT_CONFIG, paths
 
 
 def load_predictions(results_dir: Path, seq_name: str) -> np.ndarray:
@@ -84,9 +84,10 @@ def evaluate_dataset(
     config_path: Optional[Path] = None,
     initfix_dir: Optional[Path] = None,
     results_name: Optional[str] = None,
+    original_annotation: bool = False,
 ) -> Dict:
     ds_info = DATASETS[dataset]
-    load_gt_fn = make_gt_loader(dataset, initfix_dir)
+    load_gt_fn = make_gt_loader(dataset, initfix_dir, original_annotation)
     # Results normally live under the config's stem; ``results_name`` names the
     # directory directly, for runs whose directory is not a flatsam2 config.
     if results_name is not None:
@@ -95,7 +96,7 @@ def evaluate_dataset(
         results_dir = compute_output_dir(base_results_dir, dataset, config_path)
 
     if output_file is None:
-        output_file = results_dir / "eval_results.json"
+        output_file = results_dir / ("eval_results_all.json" if original_annotation else "eval_results.json")
 
     method_name = results_name or (config_path.stem if config_path is not None else "default")
 
@@ -197,7 +198,7 @@ def evaluate_dataset(
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(
-        description="Evaluate tracking results on POT-210 or PlanarTrack datasets"
+        description="Evaluate tracking results on a planar tracking benchmark"
     )
     parser.add_argument("dataset", choices=CLI_CHOICES, help="Dataset to evaluate on")
     parser.add_argument(
@@ -238,7 +239,8 @@ def main(argv=None) -> int:
         ),
     )
     parser.add_argument(
-        "--config", type=Path, help="Path to config file (for directory structure)"
+        "--config", type=Path, default=DEFAULT_CONFIG,
+        help="Path to config file (for directory structure; default: the final method)"
     )
     parser.add_argument(
         "--results-name",
@@ -255,6 +257,14 @@ def main(argv=None) -> int:
         help=(
             "Directory containing per-sequence initfix files for planartrack-initfix / pti "
             "(defaults to PT_INITFIX_DIR from path_config.py)"
+        ),
+    )
+    parser.add_argument(
+        "--original-annotation",
+        action="store_true",
+        help=(
+            "POT-210 only: score every annotated frame with the original annotation (the paper's "
+            "'all' column) instead of the 1,004 WOFT re-annotated frames; writes eval_results_all.json"
         ),
     )
     args = parser.parse_args(argv)
@@ -296,6 +306,7 @@ def main(argv=None) -> int:
         args.config,
         initfix_dir=args.initfix_dir,
         results_name=args.results_name,
+        original_annotation=args.original_annotation,
     )
     return 0
 

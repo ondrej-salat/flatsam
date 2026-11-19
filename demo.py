@@ -19,7 +19,7 @@ import sys
 from pathlib import Path
 from typing import Any, Iterator
 
-from flatsam2.path_config import REPO_ROOT, paths  # loads .env before torch / HF imports
+from flatsam2.path_config import DEFAULT_CONFIG, REPO_ROOT, paths  # loads .env before torch / HF imports
 
 
 def run(cmd: list[str]) -> None:
@@ -138,9 +138,7 @@ def demo_video(args: argparse.Namespace) -> None:
 
 def main() -> None:
     common = argparse.ArgumentParser(add_help=False)
-    common.add_argument("--config", type=Path,
-                        default=Path(os.environ.get("DEMO_CONFIG",
-                                                    "configs/tracker/flatsam_final.py")),
+    common.add_argument("--config", type=Path, default=DEFAULT_CONFIG,
                         help="Base tracker config (default: DEMO_CONFIG from .env).")
     common.add_argument("--set", action="append", default=[], metavar="KEY=VALUE",
                         help="Override one config value, repeatable; keys from `params`.")

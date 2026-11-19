@@ -47,6 +47,9 @@ Request access there, create a Read token at <https://huggingface.co/settings/to
 when `setup.sh` asks (or set `HF_TOKEN` in `.env`). Settings (dataset and output paths) live in
 `.env`, created from `.env.example` on the first run.
 
+`third_party/sam3` is a modified copy of [SAM3](https://github.com/facebookresearch/sam3) (streaming
+tracking interface added), distributed under the SAM License in `third_party/sam3/LICENSE`.
+
 Tested on Linux x86_64 with Python 3.12 and CUDA 12.6, on NVIDIA A100 and RTX 4000 SFF Ada (20 GB) GPUs.
 
 ## Evaluation

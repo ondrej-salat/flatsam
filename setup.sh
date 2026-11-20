@@ -1,5 +1,5 @@
 #!/bin/bash
-# One-time FlatSAM2 setup, safe to re-run:  ./setup.sh && source .envrc
+# One-time FlatSAM setup, safe to re-run:  ./setup.sh && source .envrc
 set -euo pipefail
 cd "$(dirname "$0")"
 

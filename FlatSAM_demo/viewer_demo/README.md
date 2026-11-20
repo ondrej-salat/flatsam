@@ -56,13 +56,13 @@ Scores are computed on the original frames; the stored frames are downscaled to 
 
 `tools/add_sequence.py` adds a sequence (or replaces it) in this folder. It needs numpy and opencv: `pip install numpy opencv-python-headless`.
 
-1. Track the sequence with the code of this repository (`demo.py` or `run.py`, see the main README). The tracker writes one poses file per sequence, `<sequence>_FLATSAM.txt`: one row per frame with eight numbers `x1 y1 x2 y2 x3 y3 x4 y4` (the four corners in the order of the annotation). Row 0 is the initialisation. Rows of NaN mean "no pose".
+1. Track the sequence with `run.py` and `refine.py` (see the main README). They write one poses file per sequence, `results/flatsam_final/<dataset>/<sequence>.txt` (first pass) and `results/warp/<dataset>/<sequence>.txt` (refinement pass): one row per frame with eight numbers `x1 y1 x2 y2 x3 y3 x4 y4` (the four corners in the order of the annotation). Row 0 is the initialisation. Rows of NaN mean "no pose".
 2. Add it:
 
    ```
    python3 tools/add_sequence.py --dataset MyData --sequence clip1 \
        --frames path/to/frames_folder \
-       --refinement path/to/clip1_FLATSAM.txt
+       --refinement results/warp/MyData/clip1.txt
    ```
 
    Optional files in the same format: `--first-pass`, `--gt` (enables the scores), `--woftsam`, `--samh`. Instead of `--frames` you can give `--video clip.mp4`. Layers you do not give are shown as unavailable. `--width 416 --quality 46` control the size of the stored frames.

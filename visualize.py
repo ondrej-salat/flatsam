@@ -1,4 +1,4 @@
-"""Visualization utilities for FlatSAM2.
+"""Visualization utilities for FlatSAM.
 
 Produces a video for a given sequence with tracking overlays.
 """

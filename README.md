@@ -6,11 +6,11 @@ Planar tracking estimates a homography mapping a target region to its current lo
 Texture-based matching is precise but becomes unreliable when the target is small, blurred, or weakly
 textured. A segmentation tracker is much more robust, but its output, the mask, does not fully specify a homography.
 We propose FlatSAM, which uses the keypoint pose wherever this is reliable, falling back to the pose estimated from the
-mask contour otherwise. The segmentation mask also focuses the keypoint budget. To achive maximum accuracy, FlatSAM
+mask contour otherwise. The segmentation mask also focuses the keypoint budget. To achieve maximum accuracy, FlatSAM
 rectifies each frame with its own first-pass pose estimate and runs again to remove residual misalignments.
 FlatSAM sets a new state-of-the-art: it has the highest p@15 and p@5 on six standard public benchmarks.
-It reaches 66.1 p@5 and 87.7 p@15 on the PlanarTrack test split and 84.5 and 97.3 on POT-210, and removes 38\,\% and
-28\,\% of the p@15 errors of the best previous tracker on PlanarTrack and MPOT-3K, the two benchmarks far from
+It reaches 66.1 p@5 and 87.7 p@15 on the PlanarTrack test split and 84.5 and 97.3 on POT-210, and removes 38 % and
+28 % of the p@15 errors of the best previous tracker on PlanarTrack and MPOT-3K, the two benchmarks far from
 saturation.
 Ablations show that the mask pose complements correspondence geometry, especially on PlanarTrack, and that the
 refinement pass adds 0.8 points on PlanarTrack, 0.8 on MPOT-3K and 1.7 on UCSB.
@@ -46,7 +46,8 @@ every annotated frame with the original annotation (all) and on the 1,004 frames
 (re-ann.). PlanarTrack (PT<sub>TST</sub>, test split) uses the re-annotated starting corners released with
 WOFTSAM for every method; its SAM-H scores are the published ones (Table 1 of the WOFTSAM paper). Other
 SAM-H entries are our rescoring of the stored run. UCSB uses the original ground truth mapped to the raw
-frames with the calibration published with the dataset. Best results in bold, second best underlined.
+frames with the calibration published with the dataset. Best results in bold, second best underlined. The WOFTSAM and
+SAM-H rows are not produced by this code.
 
 ## Viewer
 

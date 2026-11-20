@@ -1,4 +1,4 @@
-"""FlatSAM2 demo: track one dataset sequence or your own video.
+"""FlatSAM demo: track one dataset sequence or your own video.
 
 All paths/logins come from .env (copy .env.example). Examples:
 

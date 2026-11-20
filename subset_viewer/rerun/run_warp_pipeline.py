@@ -13,9 +13,9 @@ choose LoMa, e.g. n <= 8, in the hope of more matches in the rerun) and rerun; `
 mask is warped with the frame and handed to the tracker, the LoMa sampling region is the original mask dilated by 10 px in
 the original frame (as in the original run), and the tracker applies the same decision to its own inliers.
 
-Decision 2 (use the rerun pose or not) is made offline from the sidecar: improvement gate against the original SAM3 mask.
+With ``--first-pass-dir`` (as ``refine.py`` runs it), stage 1 is the finished first pass of ``run.py`` instead of the replay.
 Outputs per sequence: ``<seq>.txt`` (rerun pose where it ran, first-pass pose elsewhere), ``<seq>_rectification.npz``
-(first-pass pose, rerun pose, which frames ran, both decisions' labels and inlier counts), ``<seq>_summary.json``.
+(first-pass pose, rerun pose, which frames ran, the decision labels and inlier counts of both passes), ``<seq>_summary.json``.
 """
 from __future__ import annotations
 import argparse, csv, json, time, traceback

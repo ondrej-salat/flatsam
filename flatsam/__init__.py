@@ -1,1 +1,1 @@
-"""FlatSAM2 package"""
+"""FlatSAM package"""

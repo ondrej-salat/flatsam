@@ -1,0 +1,1134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FlatSAM viewer demo</title>
+<style>
+:root {
+  color-scheme: dark;
+  --surface-0: #111110;
+  --surface-1: #1a1a19;
+  --surface-2: #242422;
+  --border: #34342f;
+  --text-primary: #f0efec;
+  --text-secondary: #c3c2b7;
+  --text-muted: #8f8e86;
+  --accent: #3987e5;
+  --stage-bg: #0b0b0a;
+  --grid: #2c2c29;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--surface-0); color: var(--text-primary); font: 13px/1.4 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+.num { font-variant-numeric: tabular-nums; font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+button, select, input { font: inherit; color: inherit; }
+button, select { background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; padding: 4px 9px; cursor: pointer; }
+button:hover, select:hover { border-color: var(--text-muted); }
+button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.app { display: grid; height: 100vh; grid-template-columns: var(--sideW, clamp(300px, 22vw, 340px)) minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); grid-template-areas: "head head" "side main"; }
+header { grid-area: head; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; padding: 10px 16px; border-bottom: 1px solid var(--border); background: var(--surface-1); }
+header h1 { font-size: 15px; margin: 0 8px 0 0; font-weight: 600; }
+header .sub { color: var(--text-secondary); }
+header .spacer { flex: 1; }
+
+aside.side { grid-area: side; display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--border); background: var(--surface-1); }
+.side .filters { display: grid; gap: 6px; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+.side .agg { color: var(--text-secondary); font-size: 12px; }
+.side select { width: 100%; min-width: 0; max-width: 100%; text-overflow: ellipsis; }
+.side .filters { min-width: 0; }
+.side input[type=search] { width: 100%; min-width: 0; box-sizing: border-box; background: var(--surface-2); color: var(--text-primary); border: 1px solid var(--border); border-radius: 6px; padding: 7px 9px; font: inherit; }
+aside.side { min-width: 0; overflow: hidden; }
+.seqlist { overflow: auto; flex: 1; }
+.seqlist table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.seqlist th:nth-child(n+2), .seqlist td:nth-child(n+2) { width: 52px; }
+.seqlist th:nth-child(3), .seqlist td:nth-child(3) { width: 76px; }
+.seqlist th[data-sort] { cursor: pointer; user-select: none; white-space: normal; line-height: 1.2; vertical-align: bottom; }
+.seqlist th[data-sort]:hover { color: var(--text-primary, #fff); }
+.seqlist th { position: sticky; top: 0; background: var(--surface-1); text-align: right; font-weight: 500; color: var(--text-muted); font-size: 11px; padding: 6px 5px; border-bottom: 1px solid var(--border); }
+.seqlist th:first-child { text-align: left; }
+.seqlist td { padding: 5px 5px; border-bottom: 1px solid var(--surface-2); text-align: right; white-space: nowrap; }
+.seqlist td:first-child { text-align: left; overflow: hidden; text-overflow: ellipsis; }
+.seqlist tr { cursor: pointer; }
+.seqlist tbody tr:hover { background: var(--surface-2); }
+.seqlist tr.active { background: color-mix(in srgb, var(--accent) 18%, transparent); }
+.seqlist .ds { display: block; font-size: 11px; color: var(--text-muted); white-space: normal; }
+.qbody { flex: 1; min-height: 0; display: flex; }
+.ql { display: block; flex: none; width: 214px; overflow-y: auto; padding: 4px 8px; border-left: 1px solid var(--border); background: var(--surface-1); font-size: 12px; }
+body.nolist { --sideW: 0px; } body.nolist aside.side { display: none; }
+body.nograph .charts { display: none; }
+.viewbar button[aria-pressed="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 22%, var(--surface-2)); }
+.viewbar button:disabled { opacity: .4; cursor: not-allowed; }
+.viewbar .grp { display: inline-flex; gap: 4px; margin-right: 6px; }
+.rzh { flex: none; height: 8px; cursor: row-resize; position: relative; touch-action: none; margin: -3px 0; z-index: 5; }
+.rzh::after { content: ""; position: absolute; left: 0; right: 0; top: 3px; height: 2px; background: transparent; transition: background .12s; }
+.rzh:hover::after, .rzh.drag::after { background: var(--accent); }
+/* collapsed: a tab at the edge of the screen */
+.resizer.collapsed { left: 0 !important; width: 16px; cursor: pointer; background: var(--surface-2); border-right: 1px solid var(--border); }
+.resizer.collapsed::before { content: "\203A"; position: absolute; top: 50%; left: 3px; transform: translateY(-50%); color: var(--text-secondary); font-size: 16px; }
+.resizer.collapsed::after { display: none; }
+.rzh.collapsed { height: 16px; margin: 0; cursor: pointer; background: var(--surface-2); border-top: 1px solid var(--border); }
+.rzh.collapsed::before { content: "\2303"; position: absolute; left: 50%; top: -1px; transform: translateX(-50%); color: var(--text-secondary); font-size: 14px; line-height: 16px; }
+.rzh.collapsed::after { display: none; }
+.lr { padding: 3px 0; border-bottom: 1px solid var(--surface-2); } .lr label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.lr .lv { display: block; margin-left: 22px; color: var(--text-secondary); font-size: 11px; } .lr.sub label { padding-left: 12px; } .lr.sub .lv { margin-left: 34px; }
+.lr.off { opacity: .45; } .lr.na { opacity: .3; } .lr .sw { width: 34px; }
+.tier { font-size: 10px; padding: 0 5px; border-radius: 8px; border: 1px solid var(--border); color: var(--text-secondary); }
+
+main { grid-area: main; display: flex; flex-direction: column; min-height: 0; min-width: 0; padding: 12px 16px; gap: 10px; }
+.stage-wrap { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; background: var(--stage-bg); border-radius: 8px; overflow: hidden; position: relative; }
+.stage { position: relative; line-height: 0; max-width: 100%; max-height: 100%; }
+.stage img { display: block; max-width: 100%; max-height: calc(100vh - 380px); width: auto; height: auto; user-select: none; }
+.stage svg, .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.resizer { position: fixed; top: 0; bottom: 0; width: 8px; z-index: 30; cursor: col-resize; touch-action: none; }
+.resizer::after { content: ""; position: absolute; top: 0; bottom: 0; left: 3px; width: 2px; background: transparent; transition: background .12s; }
+.resizer:hover::after, .resizer.drag::after { background: var(--accent); }
+#rzL { left: calc(var(--sideW, clamp(300px, 22vw, 340px)) - 4px); }
+@media (max-width: 1100px) { .resizer { display: none; } }
+.viewbar { flex: none; display: flex; gap: 6px; align-items: center; padding: 6px 8px; background: var(--surface-1); border-bottom: 1px solid var(--border); }
+.viewbar button { padding: 2px 10px; }
+.viewbar .num { min-width: 44px; color: var(--text-secondary); }
+.viewbar .sp { flex: 1; }
+[hidden] { display: none !important; }
+.sw[data-ls="dashed"] { border-top: 0; height: 4px; background: repeating-linear-gradient(90deg, currentColor 0 6px, transparent 6px 11px); box-shadow: none; border-radius: 0; }
+.sw[data-ls="dotted"] { border-top: 0; height: 4px; background: repeating-linear-gradient(90deg, currentColor 0 3px, transparent 3px 7px); box-shadow: none; border-radius: 0; }
+#helpBtn { padding: 1px 9px; font-weight: 600; border-radius: 12px; }
+.help { position: fixed; inset: 0; z-index: 50; background: rgb(0 0 0 / .62); display: flex; align-items: center; justify-content: center; }
+.helpbox { position: relative; background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; width: min(820px, 94vw); max-height: 88vh; overflow: auto; padding: 16px 22px 18px; }
+.helpbox h2 { margin: 0 0 4px; font-size: 15px; } .helpbox h3 { margin: 14px 0 4px; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); }
+.helpbox .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0 28px; } @media (max-width: 760px) { .helpbox .cols { grid-template-columns: 1fr; } }
+.helpbox table { border-collapse: collapse; width: 100%; } .helpbox td { padding: 3px 6px 3px 0; vertical-align: top; } .helpbox td:first-child { white-space: nowrap; color: var(--text-secondary); }
+.helpbox .close { position: absolute; top: 10px; right: 12px; }
+.helpbox .sw { width: 40px; vertical-align: middle; margin-right: 6px; }
+.stage-msg { position: absolute; color: #c3c2b7; font-size: 14px; line-height: 1.4; padding: 16px; text-align: center; }
+.quad { position: relative; flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 6px; padding: 6px; background: var(--stage-bg); }
+.qp { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: #101010; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.qh { display: flex; align-items: center; gap: 8px; padding: 3px 8px; font-size: 11px; color: var(--text-secondary); background: var(--surface-1); flex-wrap: wrap; }
+.qh .qt { font-weight: 600; color: var(--text-primary); margin-right: auto; }
+.qh label { display: inline-flex; gap: 4px; align-items: center; cursor: pointer; }
+.qb { position: relative; flex: 1; min-width: 0; min-height: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.qf { position: relative; line-height: 0; transform-origin: 0 0; }
+.qf img { display: block; user-select: none; }
+.qf canvas, .qf svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.transport { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.transport input[type=range] { flex: 1; min-width: 160px; accent-color: var(--accent); }
+.transport .fr { min-width: 92px; text-align: right; color: var(--text-secondary); }
+.charts { position: relative; flex: none; display: grid; grid-template-rows: repeat(3, minmax(0, 1fr)); gap: 6px; height: var(--chartsH, 288px); }
+.chart { min-height: 0; background: var(--surface-1); border: 1px solid var(--border); border-radius: 8px; }
+.chart canvas { width: 100%; height: 100%; display: block; cursor: crosshair; }
+.tip { position: absolute; pointer-events: none; background: var(--surface-1); border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px; font-size: 12px; box-shadow: 0 2px 8px rgb(0 0 0 / .4); white-space: nowrap; display: none; z-index: 5; }
+.tip .k { color: var(--text-secondary); }
+
+.card h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); margin: 0 0 8px; font-weight: 600; }
+.panelbox { background: var(--stage-bg); border-radius: 6px; line-height: 0; position: relative; margin-top: 8px; }
+.warpbox { background-image: linear-gradient(45deg, #222 25%, transparent 25%), linear-gradient(-45deg, #222 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #222 75%), linear-gradient(-45deg, transparent 75%, #222 75%); background-size: 12px 12px; background-position: 0 0, 0 6px, 6px -6px, -6px 0; }
+.panelbox canvas { width: 100%; height: auto; display: block; }
+.panelbox .stage-msg { inset: 0; display: flex; align-items: center; justify-content: center; }
+.refbox img { width: 100%; display: block; border-radius: 6px; }
+.refbox svg, .warpbox svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.row { display: flex; align-items: center; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
+.row label { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+.row select { flex: 1; min-width: 0; }
+.row input[type=range] { flex: 1; accent-color: var(--accent); }
+.sw { width: 40px; height: 0; border-top: 4px solid; border-radius: 2px; flex: none; box-shadow: 0 0 0 1px rgb(0 0 0 / .45); display: inline-block; vertical-align: middle; }
+.sw.fill { height: 10px; border-top: 0; border: 2px solid; background: color-mix(in srgb, currentColor 30%, transparent); box-shadow: none; }
+.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.tile { background: var(--surface-2); border-radius: 6px; padding: 8px 10px; }
+.tile .lab { font-size: 11px; color: var(--text-secondary); }
+.tile .val { font-size: 20px; font-weight: 600; }
+.tile .val small { font-size: 12px; font-weight: 400; color: var(--text-secondary); }
+.tile.wide { grid-column: span 1; }
+.stats.one { grid-template-columns: 1fr 1fr 1.3fr; }
+.num.delta.pos { color: #5fd068; } .num.delta.neg { color: #ff6b6b; }
+a.jump { color: var(--accent); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.hint { color: var(--text-muted); font-size: 11px; }
+kbd { font: 11px ui-monospace, monospace; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; }
+
+table.lt { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 12px; table-layout: fixed; }
+table.lt th { font-size: 11px; font-weight: 500; color: var(--text-muted); text-align: right; padding: 3px 4px; border-bottom: 1px solid var(--border); white-space: nowrap; width: 72px; }
+table.lt th:first-child { text-align: left; width: auto; }
+table.lt td { padding: 4px 4px; border-bottom: 1px solid var(--surface-2); text-align: right; white-space: nowrap; }
+table.lt td:first-child { text-align: left; white-space: normal; overflow-wrap: anywhere; }
+table.lt tr.sub td:first-child { padding-left: 22px; }
+table.lt tr.top td { border-top: 1px solid var(--border); }
+.flag { cursor: pointer; color: var(--text-muted); margin-right: 5px; user-select: none; font-size: 13px; }
+.flag.on { color: #ffb300; }
+table.lt tr.off td { color: var(--text-muted); }
+table.lt tr.na td:first-child { color: var(--text-muted); cursor: not-allowed; }
+table.lt tr.na .sw { opacity: .35; }
+table.lt label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+table.lt tr.na label { cursor: not-allowed; }
+
+@media (max-width: 1100px) {
+  .app { grid-template-columns: 260px minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto; grid-template-areas: "head head" "side main" "panel panel"; height: auto; min-height: 100vh; }
+  .stage img { max-height: 60vh; }
+}
+@media (max-width: 720px) {
+  .app { grid-template-columns: minmax(0, 1fr); grid-template-areas: "head" "main" "side"; }
+  aside.side { border-right: 0; border-top: 1px solid var(--border); max-height: 60vh; }
+}
+</style>
+</head>
+<body>
+<div class="resizer" id="rzL" title="Drag to resize the sequence list; drag it to the edge of the screen to hide it, click the tab to show it again"></div>
+<div class="app">
+  <header>
+    <h1>FlatSAM viewer demo</h1>
+    <span class="sub" id="subtitle"></span>
+    <span class="spacer"></span>
+    <button id="helpBtn" title="Keys, mouse, colors and line styles, scores (key ?)">?</button>
+  </header>
+
+  <aside class="side">
+    <div class="filters">
+      <input id="search" type="search" placeholder="Search sequence name" aria-label="Search sequence name" autocomplete="off" spellcheck="false">
+      <select id="dsFilter" aria-label="Dataset"></select>
+      <select id="thrSel" aria-label="Precision threshold" title="Share of frames whose corner error is at most this many pixels, in percent (P@k as in the paper)"><option value="15" selected>P@15: error ≤ 15 px</option><option value="10">P@10: error ≤ 10 px</option><option value="5">P@5: error ≤ 5 px</option></select>
+      <div class="agg" id="agg"></div>
+      <button id="copyFlags" type="button" title="Copy the starred sequences to the clipboard, one per line" style="font-size:12px;padding:2px 8px">Copy starred (0)</button>
+    </div>
+    <div class="seqlist">
+      <table>
+        <thead><tr><th data-sort="name" data-label="Sequence" title="Sort by name">Sequence</th><th data-sort="op15" data-label="First pass" title="First pass: P@15 over the whole sequence (click to sort)">First pass</th><th data-sort="wp15" data-label="Refinement pass" title="Refinement pass: P@15 over the whole sequence (click to sort)">Refinement pass</th><th data-sort="delta" data-label="Δ" title="Refinement pass minus first pass, percentage points of P@15 (click to sort)">Δ</th></tr></thead>
+        <tbody id="seqBody"></tbody>
+      </table>
+    </div>
+  </aside>
+
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true"><filter id="redonly" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="0.299 0.587 0.114 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0"/></filter></svg>
+  <main>
+    <div class="stage-wrap" id="stageWrap">
+      <div class="viewbar" id="viewbar"><button id="zoomIn" title="Zoom in (the mouse does not zoom: drag or scroll moves the zoomed windows, double-click resets)">+</button><button id="zoomOut" title="Zoom out">−</button><button id="zoomReset" title="Reset the zoom (double-click or key 0)">Reset</button><span class="num" id="zoomLabel">1.0×</span><button id="shotBtn" title="Save a PNG of the four windows at this frame; the frame statistics are stored in the PNG metadata (key p)">Screenshot</button><button id="mp4Btn" title="Record the whole sequence as an MP4 of the four windows (needs a recent Chrome or Edge)">Record</button><button id="paperBtn" style="display:none">Paper frame</button></div>
+      <div class="quad" id="quad"></div>
+      <div class="stage-msg" id="stageMsg">Loading manifest…</div>
+    </div>
+    <div class="transport">
+      <button id="prevBtn" title="Previous frame">◀</button>
+      <button id="playBtn" title="Play / pause">Play</button>
+      <button id="nextBtn" title="Next frame">▶</button>
+      <input id="scrub" type="range" min="0" max="0" value="0" aria-label="Frame">
+      <span class="fr num" id="frameLabel">–</span>
+    </div>
+    <div class="rzh" id="rzC" title="Drag to change the height of the graphs; drag it to the bottom edge to hide them, click the tab to show them again (double-click: default height)"></div>
+    <div class="charts" id="charts">
+      <div class="chart"><canvas id="tlO"></canvas></div>
+      <div class="chart"><canvas id="tlN"></canvas></div>
+      <div class="chart"><canvas id="tlB"></canvas></div>
+      <div class="tip" id="tip"></div>
+    </div>
+  </main>
+
+</div>
+
+<div class="help" id="help" hidden><div class="helpbox">
+  <button class="close" id="helpClose" title="Close (Esc)">Close</button>
+  <h2>FlatSAM viewer demo</h2>
+  <div class="hint">Four windows show the same frame: the first pass FlatSAM, the ground truth with the SAM3 mask, the refinement pass FlatSAM and the baselines. Every layer can be hidden (checkboxes next to the windows). The address bar always holds a link to the current view (sequence, frame, hidden layers, warp overlay, zoom).</div>
+  <div class="cols"><div>
+    <h3>Keys</h3>
+    <table><tr><td><kbd>←</kbd> <kbd>→</kbd></td><td>previous / next frame</td></tr><tr><td><kbd>Shift</kbd> + <kbd>←</kbd> <kbd>→</kbd></td><td>10 frames at a time</td></tr><tr><td><kbd>Space</kbd></td><td>play / pause</td></tr><tr><td><kbd>↑</kbd> <kbd>↓</kbd></td><td>previous / next sequence of the list</td></tr><tr><td><kbd>F</kbd></td><td>star the sequence</td></tr><tr><td><kbd>P</kbd></td><td>screenshot of the four windows</td></tr><tr><td><kbd>0</kbd></td><td>reset the zoom</td></tr><tr><td><kbd>?</kbd></td><td>this help</td></tr></table>
+    <h3>Mouse</h3>
+    <table><tr><td>drag, scroll</td><td>move the zoomed windows (the mouse does not zoom; use + and −)</td></tr><tr><td>double-click</td><td>reset the zoom</td></tr><tr><td>edge of the list, bar above the graphs</td><td>drag to change the size; drag to the edge of the screen to hide the panel, click the tab at the edge to show it again</td></tr><tr><td>click in a graph</td><td>go to that frame (drag to scrub)</td></tr></table>
+    <h3>Buttons</h3>
+    <table><tr><td>Paper frame</td><td>jump to the frame shown in the paper (when the sequence has one)</td></tr><tr><td>Screenshot</td><td>PNG of the four windows with the numbers of the frame</td></tr><tr><td>Record</td><td>MP4 of the whole sequence, with the warp overlays that are on</td></tr></table>
+  </div><div>
+    <h3>Layers</h3>
+    <table id="helpLayers"></table>
+    <h3>Numbers</h3>
+    <table><tr><td>P@5, P@10, P@15 (%)</td><td>share of frames with a corner error of at most 5, 10 or 15 pixels, per sequence, in the list on the left (choose the threshold above it)</td></tr><tr><td>Error, px</td><td>RMS distance of the four corners to the ground truth in this frame (table on the right)</td></tr><tr><td>IoU</td><td>overlap of the quadrilateral with the ground truth</td></tr><tr><td>Δ</td><td>refinement pass minus first pass, in P@15 points</td></tr></table>
+    <h3>Windows</h3>
+    <table><tr><td>warp overlay</td><td>in the ground-truth window: the first frame warped onto the current one by the first pass (green, half transparent), the pose with which the refinement pass rectifies the frame; switch it off under "Ground truth" in the layer table</td></tr><tr><td>graphs</td><td>IoU with the ground truth per frame; the strip shows which branch the pose gate chose; grey areas have no ground truth; the line under the first two graphs also gives the number of keypoint inliers of the current frame</td></tr></table>
+  </div></div>
+</div></div>
+<script>
+"use strict";
+// ---------------------------------------------------------------- layers
+const POSES = [
+  { id: "o_samh",   label: "Mask branch (first pass)", short: "Mask branch",     color: "#e377c2" },
+  { id: "o_loma",   label: "Keypoint branch (first pass)", short: "Keypoint branch", color: "#d62728" },
+  { id: "original", label: "First pass FlatSAM",   color: "#8c1515" },
+  { id: "n_samh",   label: "Mask branch (refinement pass)", short: "Mask branch",          color: "#ffc89a" },
+  { id: "n_loma",   label: "Keypoint branch (refinement pass)", short: "Keypoint branch",      color: "#f2c200" },
+  { id: "rerun",    label: "Refinement pass FlatSAM",  color: "#ff7f0e" },
+  { id: "woft",     label: "WOFTSAM",          color: "#1f77b4" },
+  { id: "samhb",    label: "SAM-H",            color: "#8c564b" },
+];
+const MASKS = [
+  { id: "mask_o", label: "SAM3 mask", color: "#9467bd", field: "mask_o", iou: "mask_o_iou" },
+];
+const GT_COLOR = "#2ca02c";
+const DOTTED_IDS = ["woft", "samhb"];   // ground truth and the two passes solid, the branches dashed, the two baselines dotted
+const lineStyle = id => id === "gt" || id === "original" || id === "rerun" ? "solid" : DOTTED_IDS.includes(id) ? "dotted" : "dashed";
+const BRANCH_IDS = ["o_samh", "o_loma", "n_samh", "n_loma"];
+const DRAW_ORDER = ["gt", "samhb", "woft", "o_samh", "o_loma", "original", "n_samh", "n_loma", "rerun"];   // the mask is drawn first, the ground truth just above it
+const BRANCH_COLOR = { o: { loma_H: "#d62728", samh_H: "#e377c2" }, n: { loma_H: "#f2c200", samh_H: "#ffc89a" } };
+const BRANCH_NAME = { loma_H: "keypoint", samh_H: "mask" };
+
+const S = {
+  manifest: null, rows: [], visible: [], seq: null, frame: 0, playing: false, lastTick: 0, cache: new Map(),
+  on: { gt: true, original: true, rerun: true, woft: true, samhb: true, o_loma: true, o_samh: true, n_loma: true, n_samh: true, mask_o: true },
+  statsMode: "frame",
+  metric: "abs", thr: 15,
+};
+const FPS = 15;
+const $ = id => document.getElementById(id);
+const fmt = (v, d = 3) => (v === null || v === undefined || Number.isNaN(v)) ? "–" : Number(v).toFixed(d);
+const pad5 = i => String(i).padStart(5, "0");
+const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+// ---------------------------------------------------------------- script loading (works on file://)
+let pendingSeq = null;
+window.__flatsamManifest = m => { m.sequences = m.sequences.filter(q => q.dataset !== "PlanarTrack"); S.manifest = m; };  // original PlanarTrack annotations hidden; only PlanarTrackInitfix is shown
+window.__flatsamSeq = d => { if (pendingSeq) pendingSeq(d); };
+function loadScript(src) {
+  return new Promise((res, rej) => {
+    const s = document.createElement("script");
+    s.src = src; s.onload = () => { s.remove(); res(); };
+    s.onerror = () => { s.remove(); rej(new Error("Failed to load " + src)); };
+    document.head.appendChild(s);
+  });
+}
+let loadChain = Promise.resolve();      // one data script at a time: they all answer through the same callback
+function loadSeq(ds, name, tok) {
+  const key = ds + "/" + name;
+  if (S.cache.has(key)) return Promise.resolve(S.cache.get(key));
+  const p = loadChain.then(async () => {
+    if (S.cache.has(key)) return S.cache.get(key);
+    if (tok !== undefined && tok !== S.openTok) return null;       // the user has moved on: do not load this one
+    const data = await new Promise((res, rej) => {
+      pendingSeq = res;
+      loadScript(`data/${encodeURIComponent(ds)}/${encodeURIComponent(name)}.js`).catch(rej);
+    });
+    pendingSeq = null;
+    S.cache.set(key, data);
+    if (S.cache.size > 4) S.cache.delete(S.cache.keys().next().value);
+    return data;
+  });
+  loadChain = p.catch(() => {});
+  return p;
+}
+
+// ---------------------------------------------------------------- homography
+function homography(src, dst) {
+  const A = [], b = [];
+  for (let i = 0; i < 4; i++) {
+    const [x, y] = src[i], [u, v] = dst[i];
+    A.push([x, y, 1, 0, 0, 0, -u * x, -u * y]); b.push(u);
+    A.push([0, 0, 0, x, y, 1, -v * x, -v * y]); b.push(v);
+  }
+  const n = 8;
+  for (let c = 0; c < n; c++) {
+    let p = c;
+    for (let r = c + 1; r < n; r++) if (Math.abs(A[r][c]) > Math.abs(A[p][c])) p = r;
+    if (Math.abs(A[p][c]) < 1e-12) return null;
+    [A[c], A[p]] = [A[p], A[c]]; [b[c], b[p]] = [b[p], b[c]];
+    for (let r = 0; r < n; r++) {
+      if (r === c) continue;
+      const f = A[r][c] / A[c][c];
+      if (!f) continue;
+      for (let k = c; k < n; k++) A[r][k] -= f * A[c][k];
+      b[r] -= f * b[c];
+    }
+  }
+  const h = b.map((v, i) => v / A[i][i]);
+  return [h[0], h[1], h[2], h[3], h[4], h[5], h[6], h[7], 1];
+}
+function inv3(m) {
+  const [a, b, c, d, e, f, g, h, i] = m;
+  const A = e * i - f * h, B = -(d * i - f * g), C = d * h - e * g;
+  const det = a * A + b * B + c * C;
+  if (!Number.isFinite(det) || Math.abs(det) < 1e-14) return null;
+  return [A / det, -(b * i - c * h) / det, (b * f - c * e) / det,
+          B / det, (a * i - c * g) / det, -(a * f - c * d) / det,
+          C / det, -(a * h - b * g) / det, (a * e - b * d) / det];
+}
+
+// ---------------------------------------------------------------- WebGL warper
+class Warper {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.gl = canvas.getContext("webgl", { premultipliedAlpha: false, preserveDrawingBuffer: true });
+    this.ok = !!this.gl;
+    if (!this.ok) return;
+    const gl = this.gl;
+    const vs = `attribute vec2 p; void main(){ gl_Position = vec4(p,0.,1.); }`;
+    const fs = `precision highp float;
+      uniform sampler2D tex; uniform mat3 Hinv; uniform vec2 outSize; uniform vec2 imgSize;
+      uniform vec2 q0; uniform vec2 q1; uniform vec2 q2; uniform vec2 q3; uniform float targetOnly; uniform float alpha; uniform float tint;
+      float side(vec2 a, vec2 b, vec2 p){ return (b.x-a.x)*(p.y-a.y)-(b.y-a.y)*(p.x-a.x); }
+      void main(){
+        vec2 px = vec2(gl_FragCoord.x / outSize.x, 1.0 - gl_FragCoord.y / outSize.y) * imgSize;
+        vec3 q = Hinv * vec3(px, 1.0);
+        if (q.z <= 0.0) discard;
+        vec2 s = q.xy / q.z;
+        vec2 uv = s / imgSize;
+        if (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) discard;
+        if (targetOnly > 0.5) {
+          float a = side(q0,q1,s), b = side(q1,q2,s), c = side(q2,q3,s), d = side(q3,q0,s);
+          bool inside = (a>=0.&&b>=0.&&c>=0.&&d>=0.) || (a<=0.&&b<=0.&&c<=0.&&d<=0.);
+          if (!inside) discard;
+        }
+        vec3 col = texture2D(tex, uv).rgb;
+        if (tint > 0.5) col = vec3(0.0, dot(col, vec3(0.299, 0.587, 0.114)), 0.0);
+        gl_FragColor = vec4(col, alpha);
+      }`;
+    const sh = (t, src) => { const s = gl.createShader(t); gl.shaderSource(s, src); gl.compileShader(s);
+      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
+    const prog = gl.createProgram();
+    gl.attachShader(prog, sh(gl.VERTEX_SHADER, vs)); gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, fs));
+    gl.linkProgram(prog); gl.useProgram(prog);
+    const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+    const loc = gl.getAttribLocation(prog, "p"); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+    this.tex = gl.createTexture();
+    this.u = {};
+    for (const n of ["tex", "Hinv", "outSize", "imgSize", "q0", "q1", "q2", "q3", "targetOnly", "alpha", "tint"]) this.u[n] = gl.getUniformLocation(prog, n);
+    this.hasTex = false;
+  }
+  setImage(img) {
+    if (!this.ok) return;
+    const gl = this.gl;
+    gl.bindTexture(gl.TEXTURE_2D, this.tex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, img);
+    this.hasTex = true;
+  }
+  resize(cssW, cssH) {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const w = Math.max(1, Math.round(cssW * dpr)), h = Math.max(1, Math.round(cssH * dpr));
+    if (this.canvas.width !== w || this.canvas.height !== h) { this.canvas.width = w; this.canvas.height = h; }
+  }
+  clear() { if (!this.ok) return; const gl = this.gl; gl.viewport(0, 0, this.canvas.width, this.canvas.height); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); }
+  draw(Hrow, imgW, imgH, quad, targetOnly, alpha, tint) {
+    if (!this.ok || !this.hasTex) return false;
+    const Hi = inv3(Hrow);
+    this.clear();
+    if (!Hi) return false;
+    const gl = this.gl;
+    gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.uniformMatrix3fv(this.u.Hinv, false, new Float32Array([Hi[0], Hi[3], Hi[6], Hi[1], Hi[4], Hi[7], Hi[2], Hi[5], Hi[8]]));
+    gl.uniform2f(this.u.outSize, this.canvas.width, this.canvas.height);
+    gl.uniform2f(this.u.imgSize, imgW, imgH);
+    for (let k = 0; k < 4; k++) gl.uniform2f(this.u["q" + k], quad[k][0], quad[k][1]);
+    gl.uniform1f(this.u.targetOnly, targetOnly ? 1 : 0);
+    gl.uniform1f(this.u.alpha, alpha);
+    gl.uniform1f(this.u.tint, tint ? 1 : 0);
+    gl.uniform1i(this.u.tex, 0);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    return true;
+  }
+}
+
+// ---------------------------------------------------------------- sequence list and sorting
+const DS_NAME = { PlanarTrackInitfix: "PlanarTrack" };   // the paper calls the evaluated set PlanarTrack
+const dsName = d => DS_NAME[d] || d;
+const TIERS = ["worst", "decent", "medium", "good", "best"];
+const pp = v => (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v).toFixed(1);
+const sg = v => v === null || v === undefined ? "–" : (v > 0 ? "+" : "") + fmt(v);
+// key: sort value; dir: 1 ascending, -1 descending; show: cell text. Missing values sort last.
+const mk = base => (S.metric === "rel" ? base + "_rel" : base).replace("_p15", "_p" + S.thr);   // the column of the chosen threshold (the base names carry _p15)   // relative (% of target size) or absolute (px) error metric
+const SORTS = {
+  name:  { key: r => r.dataset.toLowerCase() + "/" + r.sequence.toLowerCase(), str: true },
+  op15:  { key: r => r[mk("original_p15")] },
+  wp15:  { key: r => r[mk("warp_p15")] },
+  delta: { key: r => deltaVal(r) },
+  order: { key: r => r._i },
+};
+S.sortKey = "delta"; S.sortDir = -1;
+S.warpOn = true; S.hide = { list: false, graphs: false };   // click a column heading to sort by it; click again to reverse
+// the six sequences picked for the demo
+// sequences where the tracker accepts a wrong LoMa (keypoint) pose although the mask pose is right
+const FLAG_KEY = "flatsamDemoStars1";
+const FLAGS = new Set((() => { try { return JSON.parse(localStorage.getItem(FLAG_KEY) || "[]"); } catch (e) { return []; } })());
+const flagKey = r => r.dataset + "/" + r.sequence;
+function refreshFlagUi() {
+  document.querySelectorAll("#seqBody .flag").forEach(el => { const on = FLAGS.has(el.dataset.k); el.classList.toggle("on", on); el.textContent = on ? "\u2605" : "\u2606"; });
+  const o = $("dsFilter").querySelector('option[value="__flagged"]'); if (o) o.textContent = `\u2605 Starred, ${FLAGS.size}`;
+  $("copyFlags").textContent = `Copy starred (${FLAGS.size})`;
+}
+function toggleFlag(r) {
+  const k = flagKey(r);
+  if (FLAGS.has(k)) FLAGS.delete(k); else FLAGS.add(k);
+  try { localStorage.setItem(FLAG_KEY, JSON.stringify([...FLAGS])); } catch (e) {}
+  refreshFlagUi();
+  if ($("dsFilter").value === "__flagged") renderList();
+}
+const deltaVal = r => { const a = r[mk("warp_p15")], b = r[mk("original_p15")]; return typeof a === "number" && typeof b === "number" ? a - b : null; };   // refinement pass minus first pass
+const deltaText = r => { const v = deltaVal(r); return v === null || v === undefined ? "–" : pp(v); };
+const deltaClass = r => { const v = deltaVal(r); return v > 0.05 ? "pos" : v < -0.05 ? "neg" : ""; };
+
+function renderList() {
+  const ds = $("dsFilter").value, sort = SORTS[S.sortKey], sdir = S.sortDir;
+  const q = $("search").value.trim().toLowerCase();
+  const pool = S.rows;
+  let rows = pool.filter(r => (ds === "__all" || (ds === "__flagged" ? FLAGS.has(flagKey(r)) : r.dataset === ds)) && (!q || (r.sequence + " " + r.dataset).toLowerCase().includes(q)));
+  {
+    const val = r => { const v = sort.key(r); return v === null || v === undefined || Number.isNaN(v) ? null : v; };
+    rows.sort((a, b) => {
+      const va = val(a), vb = val(b);
+      if (va === null && vb === null) return a.sequence.localeCompare(b.sequence);
+      if (va === null) return 1;
+      if (vb === null) return -1;
+      const c = sort.str ? va.localeCompare(vb) : va - vb;
+      return c === 0 ? a.sequence.localeCompare(b.sequence) : c * sdir;
+    });
+  }
+  S.visible = rows;
+  const body = $("seqBody");
+  body.innerHTML = "";
+  for (const r of rows) {
+    const tr = document.createElement("tr");
+    if (S.seq && S.seq.dataset === r.dataset && S.seq.sequence === r.sequence) tr.className = "active";
+    tr.innerHTML = `<td title="${r.dataset}/${r.sequence}"><span class="flag${FLAGS.has(flagKey(r)) ? " on" : ""}" data-k="${flagKey(r)}" title="Star this sequence (key f)">${FLAGS.has(flagKey(r)) ? "\u2605" : "\u2606"}</span>${r.sequence}<span class="ds">${dsName(r.dataset)}${r.rotated ? ' <span class="tier" title="Portrait frames are shown turned 90° clockwise so that the long side is horizontal; the scores are unchanged">rotated</span>' : ""}</span></td>
+      <td class="num" title="First pass P@${S.thr}">${r[mk("original_p15")] === null || r[mk("original_p15")] === undefined ? "--" : r[mk("original_p15")].toFixed(1)}</td>
+      <td class="num" title="Refinement pass P@${S.thr}">${r[mk("warp_p15")] === null || r[mk("warp_p15")] === undefined ? "--" : r[mk("warp_p15")].toFixed(1)}</td>
+      <td class="num delta ${deltaClass(r)}">${deltaText(r)}</td>`;
+    tr.querySelector(".flag").onclick = e => { e.stopPropagation(); toggleFlag(r); };
+    tr.onclick = () => openSeq(r.dataset, r.sequence, r.start || 0);
+    body.appendChild(tr);
+  }
+  $("agg").textContent = `${rows.length} sequences`;
+  refreshFlagUi();
+}
+
+// ---------------------------------------------------------------- layers + statistics table
+function avail(d, def) {
+  return def.field ? d[def.field] !== null && d[def.field] !== undefined : (d.layers[def.id] !== null && d.layers[def.id] !== undefined);
+}
+function meanOf(arr) {
+  if (!arr) return null;
+  const v = arr.filter(x => x !== null && x !== undefined);
+  return v.length ? v.reduce((s, x) => s + x, 0) / v.length : null;
+}
+function statCells() { return { frame: true, seq: false }; }   // layers show the current frame only; the list on the left shows whole sequences
+function setWarp(on) {
+  S.warpOn = on; document.querySelectorAll("input[data-warp]").forEach(cb => { cb.checked = on; });
+  drawQuad(); scheduleUrl();
+}
+function setLayer(id, on) {   // from the layer table or a graph legend: windows, graphs and the table stay in step
+  S.on[id] = on;
+  const tr = $("row-" + id); if (tr) { const cb = tr.querySelector("input"); if (cb) cb.checked = on; tr.classList.toggle("off", !on); }
+  document.querySelectorAll(`input[data-layer="${id}"]`).forEach(cb => { cb.checked = on; });
+  document.querySelectorAll(`.lr[data-id="${id}"]`).forEach(r => r.classList.toggle("off", !on));
+  drawQuad(); drawCharts(); scheduleUrl();
+}
+function updateStats() {
+  const d = S.seq; if (!d) return;
+  const c = statCells(), i = S.frame;
+  if (!c.frame && !c.seq) return;
+  const inv = !!(d.quality && d.quality.level === "invalid");   // GT does not match the frames: GT-based numbers are not shown
+  const set = (id, txt) => { document.querySelectorAll(`[data-c="${id}"]`).forEach(e => { e.textContent = inv && /-(rms|iou|p15|giou)$/.test(id) ? "n/a" : txt; }); };
+  for (const def of MASKS.concat(POSES)) {
+    const isMask = !!def.field, ok = avail(d, def);
+    if (c.frame) {
+      const errArr = S.metric === "rel" ? d.err_rel : d.err;
+      const noGt = !!(d.gt_src && d.gt_src[i] === 0);   // no ground truth on this frame: keep showing the last frame that had one
+      const at = arr => { if (!arr) return null; if (!noGt) return arr[i]; for (let k = i - 1; k >= 1 && k > i - 60; k--) if (arr[k] !== null && arr[k] !== undefined) return arr[k]; return null; };
+      const rms = !isMask && errArr && errArr[def.id] ? at(errArr[def.id]) : null;
+      const iou = isMask ? (d[def.iou] ? at(d[def.iou]) : null) : (d.gt_iou[def.id] ? at(d.gt_iou[def.id]) : null);
+      set(`c-${def.id}-rms`, ok ? fmt(rms, 2) : "–");
+      set(`c-${def.id}-iou`, ok ? fmt(iou, 3) : "–");
+    }
+    if (c.seq) {
+      const ls = !isMask ? d.layer_stats[def.id] : null;
+      set(`c-${def.id}-p15`, ok && ls ? fmt(ls[S.metric === "rel" ? "p15_rel" : "p15"], 1) : "–");
+      set(`c-${def.id}-giou`, ok ? fmt(isMask ? meanOf(d[def.iou]) : (ls ? ls.gt_iou : null), 3) : "–");
+    }
+  }
+}
+
+// ---------------------------------------------------------------- sequence
+// A branch curve is only shown when it belongs to the same run as the FlatSAM curve: on frames where a branch
+// was selected, FlatSAM must equal that branch. Otherwise (replay differs from the stored run) the branches are hidden.
+function hideMismatchedBranches(d) {
+  if (d._branchCheck) return; d._branchCheck = true;
+  for (const [side, flat, a, b, selKey, what] of [["o", "original", "o_loma", "o_samh", "o_selected", "original"], ["n", "rerun", "n_loma", "n_samh", "n_selected", "rerun"]]) {
+    const g = d.gt_iou, sel = d[selKey];
+    if (!g[a] && !g[b]) continue;
+    let n = 0, ok = 0;
+    if (g[flat] && sel) for (let i = 0; i < d.frames; i++) {
+      const v = g[flat][i], s = sel[i]; if (v === null || v === undefined || !s) continue;
+      const c = (s === "loma_H" ? g[a] : g[b]); if (!c || c[i] === null || c[i] === undefined) continue;
+      n++; if (Math.abs(c[i] - v) < 0.01) ok++;
+    }
+    if (n === 0 || ok / n >= 0.9) continue;
+    for (const id of [a, b]) { g[id] = null; d.layers[id] = null; d.layer_notes[id] = `Hidden: the ${what} branch replay is a different run from the ${what} FlatSAM pose (matches on ${n ? Math.round(100 * ok / n) : 0}% of frames).`; }
+    if (d[selKey]) d[selKey] = d[selKey].map(() => null);
+  }
+}
+async function openSeq(ds, name, frame) {
+  stop();
+  const tok = S.openTok = (S.openTok || 0) + 1; S.target = { dataset: ds, sequence: name };
+  $("stageMsg").style.display = ""; $("stageMsg").textContent = `Loading ${ds}/${name}…`;
+  let d;
+  try { d = await loadSeq(ds, name, tok); }
+  catch (e) { if (tok === S.openTok) $("stageMsg").textContent = e.message; return; }
+  if (tok !== S.openTok || !d) return;
+  hideMismatchedBranches(d);
+  S.seq = d; layoutQuad(); zoomReset();
+  $("stageMsg").style.display = "none";
+  $("scrub").max = d.frames - 1;
+  buildWindowLayers();
+  { const row = S.rows.find(r => r.dataset === d.dataset && r.sequence === d.sequence), pb = $("paperBtn");
+    S.paper = row && row.figure && row.start > 0 ? { frame: row.start, text: row.figure } : null;
+    pb.style.display = S.paper ? "" : "none"; if (S.paper) pb.title = `Go to the frame shown in the paper: ${S.paper.text}, frame ${S.paper.frame}`; }
+  S.initImg = null;
+  const im = new Image();                       // the first frame, warped by the warp overlays
+  im.onload = () => { if (S.seq !== d) return; S.initImg = im; QPANELS.forEach(p => p.warper && p.warper.ok && p.warper.setImage(im)); drawQuad(); };
+  im.src = d.init_image;
+  $("subtitle").textContent = `${dsName(d.dataset)} / ${d.sequence}`;
+  renderList();
+  const act = document.querySelector("#seqBody tr.active"); if (act) act.scrollIntoView({ block: "nearest" });
+  setFrame(Math.min(frame || 0, d.frames - 1), true);
+}
+
+let urlTimer = null;
+function scheduleUrl() { clearTimeout(urlTimer); urlTimer = setTimeout(syncUrl, 250); }
+function syncUrl() {   // #dataset/sequence/frame?h=hidden layers&w=windows with the warp overlay&z=zoom,x,y
+  const d = S.seq; if (!d) return;
+  const off = Object.keys(S.on).filter(k => !S.on[k]), prm = [];
+  if (off.length) prm.push("h=" + off.join(","));
+  if (!S.warpOn) prm.push("nw=1");
+  { const hp = Object.keys(S.hide).filter(k => S.hide[k]); if (hp.length) prm.push("hp=" + hp.join(",")); }
+  if (Z.k !== 1) prm.push(`z=${Z.k.toFixed(2)},${Math.round(Z.tx)},${Math.round(Z.ty)}`);
+  try { history.replaceState(null, "", `#${encodeURIComponent(d.dataset)}/${encodeURIComponent(d.sequence)}/${S.frame}` + (prm.length ? "?" + prm.join("&") : "")); } catch (e) {}
+}
+function frameSrc(i) { return `${S.seq.frame_dir}/${pad5(i)}.jpg`; }
+function setFrame(i, force) {
+  const d = S.seq; if (!d) return;
+  i = Math.max(0, Math.min(d.frames - 1, i));
+  if (i === S.frame && !force) return;
+  S.frame = i;
+  $("scrub").value = i;
+  $("frameLabel").textContent = `${i} / ${d.frames - 1}`;
+  for (let k = 1; k <= 4; k++) if (i + k < d.frames) { const p = new Image(); p.src = frameSrc(i + k); }
+  updateStats(); drawCharts(); drawQuad();
+  scheduleUrl();
+}
+function branchName(v) { return v ? (BRANCH_NAME[v] || v) : "--"; }
+
+// ---------------------------------------------------------------- overlay
+function quadPath(q) { return "M" + q.map(p => p[0] + "," + p[1]).join("L") + "Z"; }
+// overlay markup for the live view (stroke widths in screen pixels) or for a screenshot (user units of the full-size frame)
+function overlayMarkup(live, fi, view) {   // view: {ids, mask, svg, img}: the outlines of one of the four windows
+  const d = S.seq, i = fi === undefined ? S.frame : fi, parts = [];
+  const nat = view.img.naturalWidth || 640, K = Z.k;
+  const sw = px => live ? px / K : px * d.width / nat;
+  const ns = live ? ' vector-effect="non-scaling-stroke"' : "";
+  if (view.mask) for (const def of MASKS) {
+    if (!d[def.field]) continue;
+    const p = d[def.field][i];
+    if (p) parts.push(`<path d="${p}" fill="${def.color}" fill-opacity=".3" fill-rule="evenodd" stroke="${def.color}" stroke-width="${sw(1.5)}"${ns}/>`);
+  }
+  const ow = live ? view.svg.getBoundingClientRect().width : 0;
+  const dotR = !live ? 5.5 * d.width / nat : (ow > 20 ? Math.min(0.03 * d.width, 5.5 * d.width / ow) : 0.008 * d.width);   // 5.5 screen px; a fixed fraction until the layout exists
+  const add = (q, color, w, style) => {
+    if (!q) return;
+    const dd = quadPath(q);
+    const dash = style === "dashed" ? ` stroke-dasharray="${sw(w * 2.4)} ${sw(w * 2.2)}"` : style === "dotted" ? ` stroke-dasharray="0 ${sw(w * 2.4)}" stroke-linecap="round"` : "";
+    parts.push(`<path d="${dd}" fill="none" stroke="#000" stroke-opacity=".65" stroke-width="${sw(w + 3)}"${ns} stroke-linejoin="round"${dash}/>`);
+    parts.push(`<path d="${dd}" fill="none" stroke="${color}" stroke-width="${sw(w)}"${ns} stroke-linejoin="round"${dash}/>`);
+    // dot on corner 1 (the top left corner of the annotation): fixes the orientation of every layer
+    parts.push(`<circle cx="${q[0][0]}" cy="${q[0][1]}" r="${dotR}" fill="${color}" stroke="#000" stroke-width="${sw(1.6)}"${ns}/>`);
+  };
+  const colors = Object.fromEntries(POSES.map(p => [p.id, p.color])); colors.gt = GT_COLOR;
+  for (const id of DRAW_ORDER) if (view.ids.includes(id) && d.layers[id]) add(d.layers[id][i], colors[id], BRANCH_IDS.includes(id) ? 1.5 : 3, lineStyle(id));
+  return parts.join("");
+}
+
+// ---------------------------------------------------------------- four views: ground truth and mask, first pass, refinement pass, WOFTSAM and SAM-H
+const QPANELS = [
+  { key: "first",  title: "First pass FlatSAM", layers: ["original", "o_loma", "o_samh"] },
+  { key: "gt",     title: "Ground truth and SAM3 mask", layers: ["gt"], warpFrom: "original" },
+  { key: "refine", title: "Refinement pass FlatSAM", layers: ["rerun", "n_loma", "n_samh"] },
+  { key: "base",   title: "WOFTSAM and SAM-H", layers: ["woft", "samhb"] },
+];
+const visibleIds = (p, d) => p.layers.filter(id => d.layers[id] && S.on[id]);
+function buildQuad() {
+  const q = $("quad");
+  for (const p of QPANELS) {
+    const el = document.createElement("div"); el.className = "qp";
+    el.innerHTML = `<div class="qh"><span class="qt">${p.title}</span></div><div class="qbody"><div class="qb"><div class="qf"><img alt=""><canvas></canvas><svg preserveAspectRatio="none"></svg></div></div><div class="ql"></div></div>`;
+    q.appendChild(el);
+    Object.assign(p, { el, ql: el.querySelector(".ql"), qb: el.querySelector(".qb"), qf: el.querySelector(".qf"), img: el.querySelector("img"), cv: el.querySelector("canvas"), svg: el.querySelector("svg"),
+      warper: null, src: null });
+    p.img.onload = () => { if (S.seq) drawQuad(); };
+    // zoom and pan: all four windows move together
+    p.qb.addEventListener("wheel", e => { if (Z.k === 1 || e.ctrlKey) return; e.preventDefault(); Z.tx -= e.deltaX; Z.ty -= e.deltaY; applyZoom(); }, { passive: false });   // scrolling moves the zoomed windows; the mouse does not zoom
+    p.qb.addEventListener("pointerdown", e => { if (Z.k === 1) return; Z.drag = { x: e.clientX, y: e.clientY, tx: Z.tx, ty: Z.ty }; p.qb.setPointerCapture(e.pointerId); applyZoom(); });
+    p.qb.addEventListener("pointermove", e => { if (!Z.drag) return; Z.tx = Z.drag.tx + e.clientX - Z.drag.x; Z.ty = Z.drag.ty + e.clientY - Z.drag.y; applyZoom(); });
+    const end = () => { Z.drag = null; applyZoom(); };
+    p.qb.addEventListener("pointerup", end); p.qb.addEventListener("pointercancel", end);
+    p.qb.addEventListener("dblclick", zoomReset);
+  }
+}
+// the layers of a window, listed next to it (only visible with "Layers in windows")
+function buildWindowLayers() {
+  const d = S.seq; if (!d) return;
+  const byId = Object.fromEntries(MASKS.concat([{ id: "gt", label: "Ground truth", color: GT_COLOR }], POSES).map(x => [x.id, x])), SUB = ["o_loma", "o_samh", "n_loma", "n_samh"];
+  const row = id => {
+    const def = byId[id], ok = avail(d, def), isMask = !!def.field, isGt = id === "gt";
+    const vals = isGt ? "" : isMask ? `<span class="lv num">IoU <span data-c="c-${id}-iou">–</span></span>` : `<span class="lv num"><span data-c="c-${id}-rms">–</span> px · IoU <span data-c="c-${id}-iou">–</span></span>`;
+    return `<div class="lr${SUB.includes(id) ? " sub" : ""}${ok ? (S.on[id] ? "" : " off") : " na"}" data-id="${id}" title="${ok ? "" : (d.layer_notes[id] || "Not available for this sequence.")}"><label><input type="checkbox" data-layer="${id}" ${ok && S.on[id] ? "checked" : ""} ${ok ? "" : "disabled"}>` +
+      (isMask ? `<span class="sw fill" style="color:${def.color};border-color:${def.color}"></span>` : `<span class="sw" data-ls="${lineStyle(id)}" style="color:${def.color};border-color:${def.color}"></span>`) + `<span>${def.short || def.label}</span></label>${vals}</div>`;
+  };
+  const warp = `<div class="lr sub"><label title="The first frame warped onto this frame by the first pass, half transparent"><input type="checkbox" data-warp ${S.warpOn ? "checked" : ""}>Warp overlay</label></div>`;
+  for (const p of QPANELS) {
+    const ids = p.key === "gt" ? ["gt", "WARP", "mask_o"] : p.layers;
+    p.ql.innerHTML = ids.map(id => id === "WARP" ? warp : row(id)).join("");
+    p.ql.querySelectorAll("input[data-layer]").forEach(cb => { cb.onchange = e => setLayer(cb.dataset.layer, e.target.checked); });
+    const wcb = p.ql.querySelector("input[data-warp]"); if (wcb) wcb.onchange = e => setWarp(e.target.checked);
+  }
+  updateStats();
+}
+function applyPanels() {
+  const h = S.hide, b = document.body;
+  b.classList.toggle("nolist", h.list); b.classList.toggle("nograph", h.graphs);
+  $("rzL").classList.toggle("collapsed", h.list); $("rzC").classList.toggle("collapsed", h.graphs);
+  layoutQuad(); drawQuad(); if (S.seq) drawCharts(); scheduleUrl();
+}
+function layoutQuad() {   // the frame fills its window (scaled up or down), keeping its aspect ratio
+  const d = S.seq, ar = d && d.width && d.height ? d.width / d.height : 0;
+  for (const p of QPANELS) {
+    const bw = Math.max(1, p.qb.clientWidth), bh = Math.max(1, p.qb.clientHeight);
+    if (!ar) { p.img.style.maxWidth = bw + "px"; p.img.style.maxHeight = bh + "px"; continue; }
+    let w = bw, h = w / ar; if (h > bh) { h = bh; w = h * ar; }
+    p.img.style.maxWidth = "none"; p.img.style.maxHeight = "none"; p.img.style.width = Math.floor(w) + "px"; p.img.style.height = Math.floor(h) + "px";
+  }
+}
+// the lines at the top left of a window: error and IoU of every layer shown in it
+function qStats(p, d, i) {
+  if (i === 0) return [];
+  const errArr = S.metric === "rel" ? d.err_rel : d.err, unit = S.metric === "rel" ? " %" : " px", rows = [];
+  if (p.key === "gt" && d.mask_o && S.on.mask_o) rows.push([MASKS[0].color, "SAM3 mask", null, d.mask_o_iou ? d.mask_o_iou[i] : null]);
+  for (const id of visibleIds(p, d)) if (id !== "gt") rows.push([SERIES_COLOR[id], SERIES_LABEL[id], errArr && errArr[id] ? errArr[id][i] : null, d.gt_iou[id] ? d.gt_iou[id][i] : null]);
+  return rows.map(([color, label, e, u]) => ({ color, text: `${label}: ${e === null || e === undefined ? (label === "SAM3 mask" ? "" : "no GT") : fmt(e, 1) + unit}${u === null || u === undefined ? "" : (e === null || e === undefined ? "" : " · ") + "IoU " + fmt(u, 2)}` }));
+}
+function drawQuad() {
+  if (!S.seq) return;
+  const d = S.seq, i = S.frame, src = frameSrc(i), tok = S.quadTok = (S.quadTok || 0) + 1, pre = new Image();
+  pre.onload = pre.onerror = () => { if (tok !== S.quadTok) return; renderQuad(d, i, src); };   // image and outlines change together
+  pre.src = src;
+}
+function renderQuad(d, i, src) {
+  const vb = `0 0 ${d.width} ${d.height}`;
+  for (const p of QPANELS) {
+    if (p.src !== src) { p.img.src = src; p.src = src; }
+    p.svg.setAttribute("viewBox", vb);
+    p.svg.innerHTML = overlayMarkup(true, i, { ids: visibleIds(p, d), mask: p.key === "gt" && S.on.mask_o, svg: p.svg, img: p.img });
+    // warp overlay: the first frame warped onto this frame with the pose of this window
+    if (p.key === "gt" && S.warpOn) {   // the first frame warped by the first pass, only in the ground-truth window
+      if (!p.warper) { try { p.warper = new Warper(p.cv); if (S.initImg) p.warper.setImage(S.initImg); } catch (e) { p.warper = { ok: false, clear() {} }; } }
+      const wf = d.layers.original ? "original" : "rerun", q = d.layers[wf] ? d.layers[wf][i] : null, H = q && d.init_quad ? homography(d.init_quad, q) : null;
+      if (p.warper.ok && p.img.clientWidth) { p.warper.resize(p.img.clientWidth, p.img.clientHeight); if (!H || !p.warper.draw(H, d.width, d.height, d.init_quad, false, 0.55, true)) p.warper.clear(); }
+    } else if (p.warper && p.warper.ok) p.warper.clear();
+  }
+}
+
+// ---------------------------------------------------------------- charts: IoU with GT, first pass and refinement pass
+const TL = { padL: 34, padR: 10, padT: 8, padB: 30, strip: 5 };
+// Three graphs: (1) first pass and its two branches, (2) refinement pass and its two branches, (3) FlatSAM against the two baselines.
+// The graphs always show their curves; the checkboxes of the layer table only switch the outlines on the frame.
+const CHARTS = [
+  { id: "tlO", desc: "First pass FlatSAM: IoU with GT, strip = chosen branch, grey = no GT", inl: "o_inliers", ids: ["original", "o_loma", "o_samh"], sel: "o_selected", pal: "o" },
+  { id: "tlN", desc: "Refinement pass FlatSAM: IoU with GT, strip = chosen branch, grey = no GT", inl: "n_inliers", ids: ["rerun", "n_loma", "n_samh"], sel: "n_selected", pal: "n" },
+  { id: "tlB", desc: "FlatSAM and the baselines: IoU with GT, grey = no GT", ids: ["rerun", "woft", "samhb"] },
+];
+const SERIES_LABEL = { original: "First pass", o_loma: "Keypoint", o_samh: "Mask", rerun: "Refinement pass", n_loma: "Keypoint", n_samh: "Mask", woft: "WOFTSAM", samhb: "SAM-H" };
+const SERIES_COLOR = Object.fromEntries(POSES.map(p => [p.id, p.color]));
+const DASH = { solid: [], dashed: [5, 4], dotted: [0.1, 5] };
+function chartSpecs(d) {
+  return CHARTS.map(c => ({
+    id: c.id, cv: $(c.id), desc: c.desc, inl: c.inl,
+    series: c.ids.map((id, k) => [id, c.id === "tlB" && id === "rerun" ? "FlatSAM" : SERIES_LABEL[id], SERIES_COLOR[id], c.id === "tlB" ? 2.8 : (k === 0 ? 2.4 : 1.6)]),
+    sel: c.sel ? d[c.sel] : null, pal: c.pal ? BRANCH_COLOR[c.pal] : null,
+  }));
+}
+function drawCharts() {
+  const d = S.seq; if (!d) return;
+  const inv = !!(d.quality && d.quality.level === "invalid");   // no IoU curves when the GT does not match the frames
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  for (const spec of chartSpecs(d)) {
+    const cv = spec.cv, W = cv.clientWidth, Ht = cv.clientHeight;
+    if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(Ht * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(Ht * dpr); }
+    const g = cv.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, Ht);
+    const x0 = TL.padL, x1 = W - TL.padR, y0 = TL.padT, y1 = Ht - TL.padB;
+    const n = d.frames, X = i => x0 + (n > 1 ? i / (n - 1) : 0) * (x1 - x0), Y = v => y1 - v * (y1 - y0);
+    g.font = "11px ui-sans-serif, system-ui, sans-serif"; g.textBaseline = "middle";
+    g.strokeStyle = css("--grid"); g.lineWidth = 1; g.fillStyle = css("--text-muted");
+    for (const t of [0, 0.5, 1]) { g.beginPath(); g.moveTo(x0, Y(t)); g.lineTo(x1, Y(t)); g.stroke(); g.textAlign = "right"; g.fillText(t.toFixed(1), x0 - 5, Y(t)); }
+    // runs of >= 5 frames without GT are shaded (POT-210 is annotated every other frame)
+    const noGt = d.gt_src.map(v => v === 0);
+    let anyGap = false;
+    { g.fillStyle = css("--grid"); const bw = Math.max(1, (x1 - x0) / Math.max(1, n - 1));
+      for (let i = 0; i < n;) {
+        if (!noGt[i]) { i++; continue; }
+        let j = i; while (j < n && noGt[j]) j++;
+        if (j - i >= 5) { anyGap = true; g.fillRect(X(i) - bw / 2, y0, (j - i) * bw, y1 - y0); }
+        i = j;
+      } }
+    let present = 0;
+    for (const [id, , color, w] of [...spec.series].reverse()) {   // the result is first in the list, so it is drawn last, on top
+      const arr = d.gt_iou[id];
+      if (inv || !arr || !S.on[id]) continue;
+      present++;
+      g.strokeStyle = color; g.lineWidth = w; g.lineJoin = "round"; g.lineCap = id === "woft" || id === "samhb" ? "round" : "butt"; g.setLineDash(DASH[lineStyle(id)]); g.beginPath();
+      let pen = false, last = -99;
+      for (let i = 0; i < n; i++) {
+        const v = arr[i]; if (v === null || v === undefined) continue;
+        if (!pen || i - last > 4) g.moveTo(X(i), Y(v)); else g.lineTo(X(i), Y(v));   // bridge gaps of up to 3 frames
+        pen = true; last = i;
+      }
+      g.stroke(); g.setLineDash([]); g.lineCap = "butt";
+    }
+    if (!present) { g.fillStyle = css("--text-muted"); g.textAlign = "center"; g.fillText(inv ? "IoU with GT not shown: the ground truth does not match these frames" : "No layer selected, or no data for this run on this sequence", (x0 + x1) / 2, (y0 + y1) / 2); }
+    // selected-branch strip
+    const sy = y1 + 4, bw = Math.max(1, (x1 - x0) / Math.max(1, n - 1));
+    let anySel = false;
+    for (let i = 1; i < n; i++) { const s = spec.sel ? spec.sel[i] : null; if (!s) continue; anySel = true; g.fillStyle = spec.pal[s] || css("--text-muted"); g.fillRect(X(i) - bw / 2, sy, bw + 0.5, TL.strip); }
+    g.fillStyle = css("--text-muted"); g.textBaseline = "top"; g.textAlign = "left";
+    { const inl = spec.inl ? d[spec.inl] : null, nI = inl && inl[S.frame] !== null && inl[S.frame] !== undefined ? inl[S.frame] : null;
+      g.fillStyle = css("--text-muted"); g.textAlign = "left";
+      g.fillText(spec.desc + (spec.inl ? ", keypoint inliers = " + (nI === null ? "–" : nI) : ""), x0, sy + TL.strip + 2); }
+    g.textAlign = "right"; g.fillText(`frame ${n - 1}`, x1, sy + TL.strip + 2);
+    // cursor
+    const cx = X(S.frame);
+    g.strokeStyle = css("--accent"); g.lineWidth = 1.5; g.beginPath(); g.moveTo(cx, y0); g.lineTo(cx, y1); g.stroke();
+    for (const [id, , color] of spec.series) {
+      const arr = d.gt_iou[id], v = arr && !inv ? arr[S.frame] : null;
+      if (v !== null && v !== undefined) { g.fillStyle = color; g.strokeStyle = css("--surface-1"); g.lineWidth = 1.5; g.beginPath(); g.arc(cx, Y(v), 3.5, 0, 7); g.fill(); g.stroke(); }
+    }
+    TL.x0 = x0; TL.x1 = x1; cv._x0 = x0; cv._x1 = x1;
+  }
+}
+function tlFrameAt(ev, cv) {
+  const d = S.seq, r = cv.getBoundingClientRect();
+  const x0 = cv._x0 !== undefined ? cv._x0 : TL.x0, x1 = cv._x1 !== undefined ? cv._x1 : TL.x1;
+  const t = (ev.clientX - r.left - x0) / (x1 - x0);
+  return Math.max(0, Math.min(d.frames - 1, Math.round(t * (d.frames - 1))));
+}
+let tlDrag = null;
+for (const cv of [$("tlO"), $("tlN"), $("tlB")]) {
+  cv.addEventListener("mousemove", ev => {
+    const d = S.seq; if (!d) return;
+    const i = tlFrameAt(ev, cv), tip = $("tip"), r = $("charts").getBoundingClientRect();
+    const v = id => d.gt_iou[id] && d.gt_iou[id][i] !== null && d.gt_iou[id][i] !== undefined ? d.gt_iou[id][i].toFixed(3) : "--";
+    const spec = CHARTS.find(c => c.id === cv.id);
+    const ids = spec.ids.map(id => [id, cv.id === "tlB" && id === "rerun" ? "FlatSAM" : SERIES_LABEL[id]]).filter(([id]) => d.gt_iou[id]);
+    const sel = spec.sel ? d[spec.sel][i] : null;
+    tip.innerHTML = `<span class="k">frame</span> <b class="num">${i}</b> · <span class="k">GT</span> ${["none", "annotated", "dense original"][d.gt_src[i]]}` +
+      ids.map(([id, l]) => `<br><span class="k">${l} IoU</span> <span class="num">${v(id)}</span>`).join("") +
+      (sel ? `<br><span class="k">selected</span> ${branchName(sel)}` : "");
+    tip.style.display = "block";
+    const x = ev.clientX - r.left;
+    tip.style.left = Math.min(x + 12, r.width - tip.offsetWidth - 4) + "px";
+    tip.style.top = (cv.getBoundingClientRect().top - r.top + 4) + "px";
+  });
+  cv.addEventListener("mouseleave", () => { $("tip").style.display = "none"; });
+  cv.addEventListener("mousedown", ev => { if (!S.seq) return; tlDrag = cv; stop(); setFrame(tlFrameAt(ev, cv)); });
+}
+window.addEventListener("mousemove", ev => { if (tlDrag) setFrame(tlFrameAt(ev, tlDrag)); });
+window.addEventListener("mouseup", () => { tlDrag = null; });
+
+// ---------------------------------------------------------------- playback
+function stop() { S.playing = false; $("playBtn").textContent = "Play"; }
+function play() {
+  if (!S.seq) return;
+  if (S.frame >= S.seq.frames - 1) setFrame(0);
+  S.playing = true; $("playBtn").textContent = "Pause"; S.lastTick = 0;
+  requestAnimationFrame(tick);
+}
+function tick(ts) {
+  if (!S.playing) return;
+  if (ts - S.lastTick >= 1000 / FPS) {
+    S.lastTick = ts;
+    if (S.frame >= S.seq.frames - 1) { stop(); return; }
+    setFrame(S.frame + 1);
+  }
+  requestAnimationFrame(tick);
+}
+
+// ---------------------------------------------------------------- wiring
+// zoom and pan of the main frame (frame, overlays and warp layer move together)
+const Z = { k: 1, tx: 0, ty: 0, drag: null };
+function applyZoom() {
+  for (const p of QPANELS) if (p.qf) { p.qf.style.transform = Z.k === 1 && !Z.tx && !Z.ty ? "" : `translate(${Z.tx}px, ${Z.ty}px) scale(${Z.k})`; p.qb.style.cursor = Z.k > 1 ? (Z.drag ? "grabbing" : "grab") : "default"; }
+  $("zoomLabel").textContent = Z.k.toFixed(1) + "×"; scheduleUrl();
+  if (S.seq && S.seq.frames && QPANELS[0].src) renderQuad(S.seq, S.frame, QPANELS[0].src);   // the stroke widths follow the zoom
+}
+function zoomAt(cx, cy, k2, p) {   // cx, cy in the coordinates of window p; keeps the point under the cursor fixed
+  p = p || QPANELS[0]; const st = p.qf, k1 = Z.k;
+  k2 = Math.min(16, Math.max(1, k2));
+  const x = (cx - st.offsetLeft - Z.tx) / k1, y = (cy - st.offsetTop - Z.ty) / k1;
+  Z.k = k2; Z.tx = cx - st.offsetLeft - x * k2; Z.ty = cy - st.offsetTop - y * k2;
+  if (k2 === 1) { Z.tx = 0; Z.ty = 0; }
+  applyZoom();
+}
+function zoomReset() { Z.k = 1; Z.tx = 0; Z.ty = 0; applyZoom(); }
+(function () {
+  const mid = () => { const b = QPANELS[0].qb; return [b.clientWidth / 2, b.clientHeight / 2]; };
+  $("zoomIn").onclick = () => zoomAt(...mid(), Z.k * 1.5);
+  $("zoomOut").onclick = () => zoomAt(...mid(), Z.k / 1.5);
+  $("zoomReset").onclick = zoomReset;
+  document.addEventListener("keydown", e => { if (!e.target.matches("select, input") && e.key === "0") zoomReset(); });
+  // draggable edges of the two side panels; the video keeps its aspect ratio because it is sized by max-width/max-height
+  const root = document.documentElement;
+  const relayout = () => requestAnimationFrame(() => { if (S.seq) { drawCharts(); layoutQuad(); drawQuad(); } });
+  // The sequence list and the graphs have the same handle: drag it to change the size, drag it to the edge of the screen to hide the panel,
+  // click the tab at the edge to show it again (double-click: default size).
+  function slider(el, cfg) {
+    let saved = null; try { saved = +localStorage.getItem(cfg.key) || null; } catch (e) {}
+    const apply = v => { root.style.setProperty(cfg.varName, Math.round(v) + "px"); };
+    if (saved) apply(Math.min(cfg.hi(), Math.max(cfg.lo, saved)));
+    const setHidden = b => { if (S.hide[cfg.name] !== b) { S.hide[cfg.name] = b; applyPanels(); } };
+    el.addEventListener("pointerdown", e => {
+      const x0 = e.clientX, y0 = e.clientY, wasHidden = S.hide[cfg.name]; let moved = false, last = null;
+      el.setPointerCapture(e.pointerId); el.classList.add("drag");
+      const move = ev => {
+        if (Math.abs(ev.clientX - x0) + Math.abs(ev.clientY - y0) > 4) moved = true; if (!moved) return;
+        const v = cfg.measure(ev);
+        if (v < cfg.collapseBelow) { last = null; setHidden(true); return; }
+        last = Math.min(cfg.hi(), Math.max(cfg.lo, v)); setHidden(false); apply(last); relayout();
+      };
+      const up = () => {
+        el.classList.remove("drag"); el.removeEventListener("pointermove", move); el.removeEventListener("pointerup", up); el.removeEventListener("pointercancel", up);
+        if (!moved && wasHidden) { setHidden(false); if (saved) apply(saved); else root.style.removeProperty(cfg.varName); }
+        else if (last) { saved = last; try { localStorage.setItem(cfg.key, Math.round(last)); } catch (e) {} }
+        relayout();
+      };
+      el.addEventListener("pointermove", move); el.addEventListener("pointerup", up); el.addEventListener("pointercancel", up); e.preventDefault();
+    });
+    el.addEventListener("dblclick", () => { if (S.hide[cfg.name]) return; root.style.removeProperty(cfg.varName); saved = null; try { localStorage.removeItem(cfg.key); } catch (e) {} relayout(); });
+  }
+  const mainEl = document.querySelector("main");
+  slider($("rzL"), { name: "list", varName: "--sideW", key: "flatsamDemoSideW1", lo: 240, hi: () => 600, collapseBelow: 150, measure: ev => ev.clientX });
+  slider($("rzC"), { name: "graphs", varName: "--chartsH", key: "flatsamDemoChartsH1", lo: 96, hi: () => Math.max(160, mainEl.getBoundingClientRect().height - 220), collapseBelow: 60, measure: ev => mainEl.getBoundingClientRect().bottom - 12 - ev.clientY });
+})();
+
+// ---------------------------------------------------------------- screenshot of the current frame with the overlay; the statistics go into the PNG metadata
+const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+const crc32 = bytes => { let c = 0xFFFFFFFF; for (let i = 0; i < bytes.length; i++) c = CRC[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; };
+function pngChunk(type, data) {
+  const out = new Uint8Array(12 + data.length), dv = new DataView(out.buffer);
+  dv.setUint32(0, data.length);
+  for (let i = 0; i < 4; i++) out[4 + i] = type.charCodeAt(i);
+  out.set(data, 8);
+  dv.setUint32(8 + data.length, crc32(out.subarray(4, 8 + data.length)));
+  return out;
+}
+function itxtChunk(keyword, text) {   // iTXt: keyword, 0, compression flag 0, method 0, empty language tag 0, empty translated keyword 0, UTF-8 text
+  const enc = new TextEncoder(), k = enc.encode(keyword), t = enc.encode(text), data = new Uint8Array(k.length + 5 + t.length);
+  data.set(k, 0); data.set(t, k.length + 5);
+  return pngChunk("iTXt", data);
+}
+async function addPngText(blob, entries) {
+  const buf = new Uint8Array(await blob.arrayBuffer()), chunks = entries.map(([k, v]) => itxtChunk(k, v));
+  const out = new Uint8Array(buf.length + chunks.reduce((n, c) => n + c.length, 0));
+  out.set(buf.subarray(0, 33), 0);                        // PNG signature (8) + IHDR chunk (25)
+  let p = 33; for (const c of chunks) { out.set(c, p); p += c.length; }
+  out.set(buf.subarray(33), p);
+  return new Blob([out], { type: "image/png" });
+}
+function frameMetadata() {
+  const d = S.seq, i = S.frame, at = (obj, id) => obj && obj[id] ? obj[id][i] : null, ix = arr => arr ? arr[i] : null;
+  const layers = {};
+  for (const def of MASKS.concat([{ id: "gt", label: "Ground truth", color: GT_COLOR }], POSES)) {
+    const isMask = !!def.field, ent = { label: def.label, color: def.color, shown: !!S.on[def.id], available: def.id === "gt" ? !!d.layers.gt : avail(d, def) };
+    if (isMask) ent.iou_with_gt = ix(d[def.iou]);
+    else if (def.id !== "gt") { ent.error_relative_percent = at(d.err_rel, def.id); ent.error_px = at(d.err, def.id); ent.iou_with_gt = at(d.gt_iou, def.id); }
+    layers[def.id] = ent;
+  }
+  const ls = d.layer_stats || {};
+  return {
+    viewer: "FlatSAM viewer demo", created: new Date().toISOString(),
+    dataset: d.dataset, sequence: d.sequence, frame: i, frames: d.frames, image_size_px: [d.width, d.height],
+    ground_truth_on_this_frame: ["none", "annotated", "dense original"][d.gt_src[i]],
+    note: d.gt_src[i] === 0 ? "No ground truth on this frame: the error and IoU values are null (the viewer shows the last value that had one)." : "",
+    first_pass: { selected_branch: ix(d.o_selected), keypoint_inliers: ix(d.o_inliers) },
+    refinement_pass: { selected_branch: ix(d.n_selected), keypoint_inliers: ix(d.n_inliers) },
+    sequence_statistics_p15: { first_pass: ls.original || null, refinement_pass: ls.rerun || null },
+    layers,
+  };
+}
+// the four windows drawn into one canvas: a title strip, then 2 x 2 windows with their outlines and the numbers at the top left
+const QGAP = 8, QHEAD = 26, QTOP = 30;
+function quadLayout(d, tileW) {
+  const tileH = Math.round(tileW * d.height / d.width), ev2 = v => v + (v % 2);
+  return { tileW, tileH, W: ev2(2 * tileW + 3 * QGAP), H: ev2(QTOP + 2 * (tileH + QHEAD) + 3 * QGAP) };
+}
+async function drawComposite(g, d, i, im, L, warpCanvas) {   // warpCanvas(k): a canvas with the warp overlay of window k, or null
+  g.fillStyle = "#0b0b0a"; g.fillRect(0, 0, L.W, L.H);
+  g.textBaseline = "middle"; g.textAlign = "left"; g.font = "600 15px -apple-system, Helvetica, Arial, sans-serif"; g.fillStyle = "#e6edf3";
+  g.fillText(`${dsName(d.dataset)} / ${d.sequence} · frame ${i} / ${d.frames - 1}`, QGAP, QTOP / 2 + 1);
+  for (let k = 0; k < 4; k++) {
+    const p = QPANELS[k], x = QGAP + (k % 2) * (L.tileW + QGAP), y = QTOP + QGAP + Math.floor(k / 2) * (L.tileH + QHEAD + QGAP), ty = y + QHEAD;
+    g.fillStyle = "#1a1a19"; g.fillRect(x, y, L.tileW, QHEAD);
+    g.fillStyle = "#f0efec"; g.font = "600 13px -apple-system, Helvetica, Arial, sans-serif"; g.fillText(p.title, x + 8, y + QHEAD / 2 + 1);
+    g.fillStyle = "#000"; g.fillRect(x, ty, L.tileW, L.tileH); g.drawImage(im, x, ty, L.tileW, L.tileH);
+    const wc = warpCanvas ? warpCanvas(k) : null; if (wc) g.drawImage(wc, x, ty, L.tileW, L.tileH);
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${L.tileW}" height="${L.tileH}" viewBox="0 0 ${d.width} ${d.height}" preserveAspectRatio="none">${overlayMarkup(false, i, { ids: visibleIds(p, d), mask: p.key === "gt" && S.on.mask_o, img: im })}</svg>`;
+    const url = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
+    try { g.drawImage(await loadImage(url), x, ty, L.tileW, L.tileH); } finally { URL.revokeObjectURL(url); }
+    let yy = ty + 14; g.font = "12px ui-monospace, Menlo, monospace";
+    for (const r of qStats(p, d, i)) {
+      g.lineWidth = 3; g.strokeStyle = "rgba(0,0,0,.85)"; g.strokeText("\u25A0 " + r.text, x + 8, yy);
+      g.fillStyle = "#eee"; g.fillText("\u25A0 " + r.text, x + 8, yy); g.fillStyle = r.color; g.fillText("\u25A0", x + 8, yy); yy += 15;
+    }
+  }
+}
+async function screenshot() {
+  const d = S.seq, im = QPANELS[0].img; if (!d || !im.naturalWidth) return;
+  const L = quadLayout(d, Math.min(960, im.naturalWidth * 2)), cv = document.createElement("canvas"); cv.width = L.W; cv.height = L.H;
+  try {
+    await drawComposite(cv.getContext("2d"), d, S.frame, im, L, k => QPANELS[k].key === "gt" && S.warpOn && QPANELS[k].warper && QPANELS[k].warper.ok ? QPANELS[k].cv : null);
+    const png = await new Promise((ok, bad) => cv.toBlob(b => b ? ok(b) : bad(new Error("no blob")), "image/png"));
+    const meta = frameMetadata(), summary = `${meta.dataset}/${meta.sequence} frame ${meta.frame}: ` + Object.entries(meta.layers).filter(([k, v]) => v.error_px !== undefined && v.error_px !== null).map(([k, v]) => `${v.label} ${v.error_px} px (IoU ${v.iou_with_gt})`).join("; ");
+    const out = await addPngText(png, [["FlatSAM", JSON.stringify(meta, null, 1)], ["Description", summary]]);
+    const a = document.createElement("a"); a.href = URL.createObjectURL(out);
+    a.download = `${d.dataset}_${d.sequence}_frame${String(S.frame).padStart(5, "0")}.png`.replace(/[^A-Za-z0-9_.-]/g, "_");
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  } catch (e) {
+    alert("The browser blocked the screenshot (" + e + "). A page opened from a file cannot read its own images. Start the demo with start_demo.py (python3 start_demo.py in this folder) and use the page it opens; Screenshot and Record work there.");
+  }
+}
+$("shotBtn").onclick = screenshot;
+
+// ---------------------------------------------------------------- recording of the whole sequence as an MP4 of the four windows (WebCodecs + mp4-muxer)
+let mp4Running = false, mp4Cancel = false;
+function lastVal(arr, i) { if (!arr) return null; for (let k = i; k >= 0; k--) if (arr[k] !== null && arr[k] !== undefined) return arr[k]; return null; }
+function loadImage(src) { return new Promise((ok, bad) => { const im = new Image(); im.onload = () => ok(im); im.onerror = () => bad(new Error("cannot load " + src)); im.src = src; }); }
+async function loadMuxer() {
+  if (window.Mp4Muxer) return window.Mp4Muxer;
+  await new Promise((ok, bad) => { const s = document.createElement("script"); s.src = "vendor/mp4-muxer.js"; s.onload = ok; s.onerror = () => bad(new Error("vendor/mp4-muxer.js is missing")); document.head.appendChild(s); });
+  return window.Mp4Muxer;
+}
+async function exportMp4() {
+  const btn = $("mp4Btn");
+  if (mp4Running) { mp4Cancel = true; return; }
+  const d = S.seq; if (!d) return;
+  if (!window.VideoEncoder) {
+    alert(window.isSecureContext === false
+      ? "Record needs a secure page: browsers only offer the video encoder on https or on localhost. Open the viewer through http://localhost (python3 start_demo.py, or an SSH tunnel to the server) and try again."
+      : "This browser has no WebCodecs video encoder. Use a recent Chrome, Edge, Firefox or Safari.");
+    return;
+  }
+  mp4Running = true; mp4Cancel = false; stop();
+  try {
+    const Mux = await loadMuxer(), fps = 15, L = quadLayout(d, 640), W = L.W, H = L.H;
+    const cfg = { codec: "avc1.640033", width: W, height: H, bitrate: 8e6, framerate: fps };
+    const sup = await VideoEncoder.isConfigSupported(cfg); if (!sup.supported) throw new Error("H.264 encoding of " + W + "x" + H + " is not supported here");
+    const muxer = new Mux.Muxer({ target: new Mux.ArrayBufferTarget(), video: { codec: "avc", width: W, height: H }, fastStart: "in-memory" });
+    let err = null;
+    const enc = new VideoEncoder({ output: (c, m) => muxer.addVideoChunk(c, m), error: e => { err = e; } });
+    enc.configure(cfg);
+    // windows with the warp overlay switched on get their own off-screen warper at the size of the recording
+    const wp = QPANELS.map(p => { if (p.key !== "gt" || !S.warpOn || !S.initImg) return null; try { const c = document.createElement("canvas"); c.width = L.tileW; c.height = L.tileH; const w = new Warper(c); if (!w.ok) return null; w.setImage(S.initImg); return { c, w, from: d.layers.original ? "original" : "rerun" }; } catch (e) { return null; } });
+    const cv = document.createElement("canvas"); cv.width = W; cv.height = H; const g = cv.getContext("2d");
+    for (let i = 0; i < d.frames; i++) {
+      if (mp4Cancel || S.seq !== d) throw new Error("cancelled");
+      if (err) throw err;
+      btn.textContent = `Record ${Math.round(100 * i / d.frames)}% (click to stop)`;
+      const im = await loadImage(frameSrc(i));
+      for (const x of wp) if (x) { const q = d.layers[x.from] ? d.layers[x.from][i] : null, Hm = q && d.init_quad ? homography(d.init_quad, q) : null; if (!Hm || !x.w.draw(Hm, d.width, d.height, d.init_quad, false, 0.55, true)) x.w.clear(); }
+      await drawComposite(g, d, i, im, L, k => wp[k] ? wp[k].c : null);
+      const vf = new VideoFrame(cv, { timestamp: Math.round(i * 1e6 / fps), duration: Math.round(1e6 / fps) });
+      enc.encode(vf, { keyFrame: i % 60 === 0 }); vf.close();
+      while (enc.encodeQueueSize > 6) await new Promise(r => setTimeout(r, 5));
+    }
+    btn.textContent = "Record: finishing";
+    await enc.flush(); if (err) throw err; muxer.finalize();
+    const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([muxer.target.buffer], { type: "video/mp4" }));
+    a.download = `${d.dataset}_${d.sequence}.mp4`.replace(/[^A-Za-z0-9_.-]/g, "_");
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+  } catch (e) {
+    if (String(e.message) !== "cancelled") alert("The recording failed: " + e.message + ". Pages opened from a file cannot read their images; start the demo with start_demo.py (python3 start_demo.py in this folder) and use the page it opens.");
+  } finally { mp4Running = false; btn.textContent = "Record"; }
+}
+$("mp4Btn").onclick = exportMp4;
+$("paperBtn").onclick = () => { if (S.paper) { stop(); setFrame(S.paper.frame); } };
+$("playBtn").onclick = () => S.playing ? stop() : play();
+$("prevBtn").onclick = () => { stop(); setFrame(S.frame - 1); };
+$("nextBtn").onclick = () => { stop(); setFrame(S.frame + 1); };
+$("scrub").oninput = e => { stop(); setFrame(+e.target.value); };
+$("copyFlags").onclick = () => { const txt = [...FLAGS].sort().join("\n"); const done = () => { const b = $("copyFlags"); b.textContent = "Copied"; setTimeout(refreshFlagUi, 1200); };
+  try { navigator.clipboard.writeText(txt).then(done, () => { prompt("Starred sequences", txt); }); } catch (e) { prompt("Starred sequences", txt); } };
+$("thrSel").onchange = e => { S.thr = +e.target.value; document.querySelectorAll("th[data-sort]").forEach(th => { if (th.dataset.sort !== "name") th.title = th.title.replace(/P@\d+/, "P@" + S.thr); }); renderList(); };
+$("dsFilter").onchange = renderList;
+$("search").addEventListener("input", renderList);
+document.querySelectorAll("th[data-sort]").forEach(th => th.onclick = () => {
+  const k = th.dataset.sort;
+  if (S.sortKey === k) S.sortDir = -S.sortDir; else { S.sortKey = k; S.sortDir = 1; }
+  updateSortHeads(); renderList();
+});
+function updateSortHeads() { document.querySelectorAll("th[data-sort]").forEach(th => { th.textContent = th.dataset.label + (S.sortKey === th.dataset.sort ? (S.sortDir > 0 ? " \u25B2" : " \u25BC") : ""); }); }
+updateSortHeads();
+document.addEventListener("change", e => { if (e.target.matches("select, input[type=range], input[type=checkbox]")) e.target.blur(); });   // give the keys back to the page after a choice
+document.addEventListener("keydown", e => {
+  if (e.target.matches("input[type=text], input[type=search], input:not([type]), textarea")) return;
+  if (e.target.matches("select, input") && !(e.key === "ArrowDown" || e.key === "ArrowUp")) return;
+  if (!S.seq) { if (e.key === "ArrowDown" && S.visible && S.visible[0]) { openSeq(S.visible[0].dataset, S.visible[0].sequence, S.visible[0].start || 0); e.preventDefault(); } return; }
+  if (e.target.matches("select")) e.target.blur();
+  const step = e.shiftKey ? 10 : 1;
+  if (e.key === "ArrowRight") { stop(); setFrame(S.frame + step); e.preventDefault(); }
+  else if (e.key === "ArrowLeft") { stop(); setFrame(S.frame - step); e.preventDefault(); }
+  else if (e.key === " ") { S.playing ? stop() : play(); e.preventDefault(); }
+  else if (e.key === "p") { screenshot(); }
+  else if (e.key === "f") { const r = S.rows.find(x => x.dataset === S.seq.dataset && x.sequence === S.seq.sequence); if (r) toggleFlag(r); }
+  else if (e.key === "ArrowDown" || e.key === "ArrowUp") {   // next / previous sequence of the list
+    const down = e.key === "ArrowDown";
+    const cur = S.target || S.seq; const idx = S.visible.findIndex(r => r.dataset === cur.dataset && r.sequence === cur.sequence);
+    const nx = S.visible[idx + (down ? 1 : -1)];
+    if (nx) openSeq(nx.dataset, nx.sequence, nx.start || 0);
+    e.preventDefault();
+  }
+});
+new ResizeObserver(() => { if (S.seq) { drawCharts(); layoutQuad(); drawQuad(); } }).observe(document.body);
+
+// ---------------------------------------------------------------- help
+(function () {
+  const rows = [["gt", "Ground truth (top right window)", "#2ca02c"], ["mask_o", "SAM3 mask (top right window)", "#9467bd"]].concat(POSES.map(p => [p.id, p.label, p.color]));
+  $("helpLayers").innerHTML = rows.map(([id, label, color]) => `<tr><td><span class="sw${id === "mask_o" ? " fill" : ""}" ${id === "mask_o" ? "" : `data-ls="${lineStyle(id)}"`} style="color:${color};border-color:${color}"></span></td><td>${label}</td></tr>`).join("");
+  const show = on => { $("help").hidden = !on; };
+  $("helpBtn").onclick = () => show($("help").hidden);
+  $("helpClose").onclick = () => show(false);
+  $("help").addEventListener("mousedown", e => { if (e.target === $("help")) show(false); });
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape") show(false);
+    else if (e.key === "?" && !e.target.matches("input[type=text], input[type=search], textarea")) { show($("help").hidden); e.preventDefault(); }
+  });
+})();
+
+// ---------------------------------------------------------------- boot
+(async function boot() {
+  try { await loadScript("data/manifest.js"); }
+  catch (e) { $("stageMsg").textContent = "Could not load data/manifest.js — open index.html from the generated viewer folder."; return; }
+  S.rows = S.manifest.sequences; S.rows.forEach((r, i) => r._i = i);
+  const dss = [...new Set(S.rows.map(r => r.dataset))];
+  $("dsFilter").innerHTML = `<option value="__flagged">\u2605 Starred, 0</option><option value="__all">All datasets, ${S.rows.length}</option>` +
+    dss.map(d => `<option value="${d}">${dsName(d)}, ${S.rows.filter(r => r.dataset === d).length}</option>`).join("");
+  $("dsFilter").value = "__all";
+  buildQuad(); layoutQuad(); applyPanels();
+  renderList();
+  const hs = location.hash.slice(1), qi = hs.indexOf("?"), prm = new URLSearchParams(qi < 0 ? "" : hs.slice(qi + 1));
+  const h = decodeURIComponent(qi < 0 ? hs : hs.slice(0, qi)).split("/");
+  for (const id of (prm.get("h") || "").split(",")) if (id && id in S.on) S.on[id] = false;
+  if (prm.get("nw")) S.warpOn = false;
+  for (const k of (prm.get("hp") || "").split(",")) if (k in S.hide) S.hide[k] = true;
+  applyPanels();
+  let start = null;
+  if (h.length >= 2) { const pool = S.rows; start = pool.find(r => r.dataset === h[0] && r.sequence === h.slice(1, h.length - 1).join("/")) || pool.find(r => r.dataset === h[0] && r.sequence === h[1]); }
+  start = start || S.visible[0];
+  if (start) {
+    await openSeq(start.dataset, start.sequence, h.length >= 3 ? +h[h.length - 1] || 0 : (start.start || 0));
+    const z = (prm.get("z") || "").split(",").map(Number);
+    if (z.length === 3 && z.every(Number.isFinite) && z[0] > 1) { Z.k = Math.min(16, z[0]); Z.tx = z[1]; Z.ty = z[2]; applyZoom(); }
+  }
+  else $("stageMsg").textContent = "Manifest has no sequences.";
+})();
+</script>
+</body>
+</html>

@@ -50,19 +50,22 @@ frames with the calibration published with the dataset. Best results in bold, se
 
 ## Viewer
 
-`FlatSAM_demo.zip` contains a self-contained browser viewer (`viewer_demo/index.html`) with 12 sequences of the six
-benchmarks, the sequences of the paper's figures. Frame by frame it shows the ground truth, the
-SAM3 mask, the first and the refinement pass of FlatSAM with their keypoint and mask branches, and WOFTSAM and SAM-H.
+`FlatSAM_demo/viewer_demo/` is a self-contained browser viewer with 12 sequences of the six benchmarks, the sequences
+of the paper's figures. Frame by frame it shows the ground truth, the SAM3 mask, the first and the refinement pass of
+FlatSAM with their keypoint and mask branches, and WOFTSAM and SAM-H. It needs only Python 3, no installation or GPU:
 
 ```bash
-unzip FlatSAM_demo.zip
-python3 viewer_demo/start_demo.py   # serves the folder on 127.0.0.1 and opens the viewer
+python3 FlatSAM_demo/viewer_demo/start_demo.py   # opens the viewer in the browser; Ctrl+C to stop
 ```
+
+You can also open [`FlatSAM_demo/viewer_demo/index.html`](FlatSAM_demo/viewer_demo/index.html) directly in a browser,
+without Python. Everything works except **Screenshot** and **Record**, because a page opened from a file cannot read
+its own images.
 
 ## Installation
 
 ```bash
-cd flatsam-demo
+cd flatsam
 
 ./setup.sh
 

@@ -17,3 +17,4 @@ venv/
 
 # IDE
 .idea/
+!FlatSAM_demo/flatsam_viewer_demo.mp4

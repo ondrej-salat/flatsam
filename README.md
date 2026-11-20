@@ -96,11 +96,12 @@ Datasets go to `data/` by default (the `*_BASE` paths in `.env`); `--base-dir` o
 
 ### 1. Datasets
 
-**[POT-210](https://liangp.github.io/data/pot280/)** (objects V01–V30 of POT-280):
+**[POT-210](https://liangp.github.io/data/pot280/)** (objects V01–V30 of POT-280). The re-annotation of WOFT
+(`POT-210-reannot_coarse_onlychanged.tar.gz`) is linked from the README of the
+[WOFTSAM repository](https://github.com/serycjon/WOFTSAM); download it to the repository root, then:
 
 ```bash
 for o in $(seq -w 1 30); do python scripts/download_pot280.py --root data/POT-210 --object V$o; done
-wget https://cmp.felk.cvut.cz/~serycjon/WOFT/results/POT-210-reannot_coarse_onlychanged.tar.gz
 tar xzf POT-210-reannot_coarse_onlychanged.tar.gz -C data/POT-210/annotation
 
 python run.py pot --save-masks

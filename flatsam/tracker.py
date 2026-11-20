@@ -10,23 +10,23 @@ import ptlflow
 from ptlflow.utils.io_adapter import IOAdapter
 from sam3 import SAM3StreamingTracker
 
-from flatsam2 import full_object, gate, match_naming
-from flatsam2.config import LoMaPathConfig, TrackerConfig
-from flatsam2.datasets import warp_corners
-from flatsam2.geometry import warp_points
-from flatsam2.profiling import profiler
+from flatsam import full_object, gate, match_naming
+from flatsam.config import LoMaPathConfig, TrackerConfig
+from flatsam.datasets import warp_corners
+from flatsam.geometry import warp_points
+from flatsam.profiling import profiler
 
 # Shared verbs and types live in tracking.common so the per-algorithm modules
 # can import them without a circular dependency on this module. Re-exported here
-# (constants, dataclasses, pure helpers) to keep `from flatsam2.tracker import
+# (constants, dataclasses, pure helpers) to keep `from flatsam.tracker import
 # TrackResult / _DEBUG_CANDIDATES / ...` working for existing callers.
-from flatsam2.tracking import flow_hough, loma_samh
-from flatsam2.tracking.common import (
+from flatsam.tracking import flow_hough, loma_samh
+from flatsam.tracking.common import (
     _CANDIDATE_LAST_H,
     _CANDIDATE_LOMA,
     _CANDIDATE_MASK_H,
     _CANDIDATE_SAMH,
-    _DEBUG_CANDIDATES,  # noqa: F401  re-exported for `from flatsam2.tracker import _DEBUG_CANDIDATES`
+    _DEBUG_CANDIDATES,  # noqa: F401  re-exported for `from flatsam.tracker import _DEBUG_CANDIDATES`
     _MASK_H_SOURCE_HOUGH,
     CorrectionTelemetry,
     MaskHTelemetry,
@@ -115,8 +115,8 @@ class FlatSAMTracker:
         # None keeps the selected SAM3 mask as the sampling region.
         self._loma_densify_mask: Optional[np.ndarray] = None
         if self.cfg.loma.enabled:
-            from flatsam2.loma_models import build_loma_model
-            from flatsam2.loma_tracker import LoMaTracker
+            from flatsam.loma_models import build_loma_model
+            from flatsam.loma_tracker import LoMaTracker
 
             self._loma = LoMaTracker(build_loma_model(self.cfg.loma.model))
 
@@ -128,7 +128,7 @@ class FlatSAMTracker:
             if dino is not None:
                 self._dino = dino
             else:
-                from flatsam2.hough_homography import DINOFeatureExtractor
+                from flatsam.hough_homography import DINOFeatureExtractor
 
                 self._dino = DINOFeatureExtractor()
 
@@ -224,7 +224,7 @@ class FlatSAMTracker:
 
         # Initialize symmetry state if enabled.
         if self.cfg.symmetry.enabled:
-            from flatsam2.hough_homography import SymmetryState
+            from flatsam.hough_homography import SymmetryState
 
             self.state.symmetry = SymmetryState()
 
@@ -473,7 +473,7 @@ class FlatSAMTracker:
         if not hough_enabled:
             return None, 0
 
-        from flatsam2.hough_homography import mask_to_homography
+        from flatsam.hough_homography import mask_to_homography
 
         # Seed the Hough corner association with the previous prediction.
         with profiler.section("mask_H"):
@@ -532,7 +532,7 @@ class FlatSAMTracker:
                 feats_i,
             )
         # Kept *before* RANSAC: these are the naming evidence
-        # (flatsam2.match_naming). Inliers are selected under a homography that
+        # (flatsam.match_naming). Inliers are selected under a homography that
         # already carries one of the four namings, so they cannot arbitrate
         # between namings without circularity.
         self._loma_last_matches = (pts_a, pts_b)
@@ -562,7 +562,7 @@ class FlatSAMTracker:
         n_inliers: int,
         samh_H: np.ndarray,
     ) -> np.ndarray:
-        """Pick LoMa vs the independent SAM-H estimate by the gate (``flatsam2.gate``).
+        """Pick LoMa vs the independent SAM-H estimate by the gate (``flatsam.gate``).
 
         Use LoMa when its inlier count reaches ``inlier_threshold`` (or, in the
         agreement band, when its quad agrees with the SAM-H quad), otherwise use
@@ -817,7 +817,7 @@ class FlatSAMTracker:
         if self._dino is None:
             return
 
-        from flatsam2.hough_homography import resolve_symmetry
+        from flatsam.hough_homography import resolve_symmetry
 
         sym = self.cfg.symmetry
         with profiler.section("symmetry"):

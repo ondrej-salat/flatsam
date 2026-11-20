@@ -20,11 +20,11 @@ fi
 
 # create venv, install dependencies
 [ -x venv/bin/python ] || uv venv --seed --python 3.12 venv
-if ! venv/bin/python -c "import flatsam2, sam3, ptlflow, loma" 2>/dev/null; then
+if ! venv/bin/python -c "import flatsam, sam3, ptlflow, loma" 2>/dev/null; then
   uv pip install --python venv/bin/python --no-deps -r requirements-lock.txt
   uv pip install --python venv/bin/python --no-deps -e .
 fi
-venv/bin/python -c "import flatsam2, sam3, ptlflow, loma" || {
+venv/bin/python -c "import flatsam, sam3, ptlflow, loma" || {
   echo "ERROR: imports fail (see above)"
   exit 1
 }

@@ -1,7 +1,7 @@
 """Dataset registry — single source of truth for all supported dataset variants.
 
 This module is intentionally free of intra-package imports so that both
-:mod:`flatsam2.sequences` (stdlib-only) and :mod:`flatsam2.datasets` can
+:mod:`flatsam.sequences` (stdlib-only) and :mod:`flatsam.datasets` can
 import from it without creating circular dependencies.
 
 Attributes:
@@ -26,18 +26,18 @@ class DatasetInfo:
             (e.g. ``'PlanarTrackInitfix'``).
         short_label: Abbreviated name used in table columns (e.g. ``'PTi'``).
         base_dir_attr: Attribute name on
-            :class:`~flatsam2.path_config.PathConfig` that holds the dataset
+            :class:`~flatsam.path_config.PathConfig` that holds the dataset
             root directory (e.g. ``'PT_BASE'``).
         gt_loader: Which GT loading strategy to use:
-            ``'pot'`` → :func:`~flatsam2.datasets.pot_load_gt`,
-            ``'pt'``  → :func:`~flatsam2.datasets.pt_load_gt`,
-            ``'pti'`` → :func:`~flatsam2.datasets.pti_load_gt`
+            ``'pot'`` → :func:`~flatsam.datasets.pot_load_gt`,
+            ``'pt'``  → :func:`~flatsam.datasets.pt_load_gt`,
+            ``'pti'`` → :func:`~flatsam.datasets.pti_load_gt`
             (requires an ``initfix_dir`` at call time),
-            ``'corners_txt'`` → :func:`~flatsam2.datasets.corners_txt_load_gt`
+            ``'corners_txt'`` → :func:`~flatsam.datasets.corners_txt_load_gt`
             (POIC / UCSB, which share one annotation format and differ only in
             where the frames and the annotations live — see ``seq_subdir`` /
             ``gt_subdir``),
-            ``'mpot'`` → :func:`~flatsam2.datasets.mpot_load_gt` (MPOT-3K,
+            ``'mpot'`` → :func:`~flatsam.datasets.mpot_load_gt` (MPOT-3K,
             whose sequences hold several planar objects at once; one tracking
             task is one ``<sequence>__<instance>`` pair).
         uses_split: Whether this dataset supports train/test splits.

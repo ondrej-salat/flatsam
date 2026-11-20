@@ -2,7 +2,7 @@
 
 Pure homography/mask helpers, candidate-source labels, and the per-frame
 result/debug dataclasses. Nothing here depends on the
-:class:`~flatsam2.tracker.FlatSAMTracker` class, so the per-algorithm modules
+:class:`~flatsam.tracker.FlatSAMTracker` class, so the per-algorithm modules
 can import from here without a circular dependency on ``tracker``.
 """
 
@@ -12,8 +12,8 @@ from typing import Optional
 import numpy as np
 import cv2
 
-from flatsam2.config import CorrectionCfg
-from flatsam2.mask_metrics import cropped_signed_area_discrepancy
+from flatsam.config import CorrectionCfg
+from flatsam.mask_metrics import cropped_signed_area_discrepancy
 
 
 # Condition-number threshold above which a homography is considered numerically singular.
@@ -235,7 +235,7 @@ class MaskHTelemetry:
             mask-H was unavailable this frame.
         naming_support: (4,) correspondence support of the four cyclic namings
             of the returned pose, in effective matches
-            (``flatsam2.match_naming``). NaN when it was not measured.
+            (``flatsam.match_naming``). NaN when it was not measured.
         naming_n_matches: Raw match count backing that support; -1 when N/A.
         naming_shift: Cyclic shift the correspondence namer actually applied --
             0 when it looked and kept the incumbent naming, 1-3 when it

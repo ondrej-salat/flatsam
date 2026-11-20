@@ -26,7 +26,7 @@ refinement pass adds 0.8 points on PlanarTrack, 0.8 on MPOT-3K and 1.7 on UCSB.
       <th rowspan="2"><a href="https://liangp.github.io/data/pot280/">POT-280</a></th>
       <th rowspan="2"><a href="https://hengfan2010.github.io/projects/PlanarTrack/">PT<sub>TST</sub></a></th>
       <th rowspan="2"><a href="https://github.com/LinChen-Cherry/POIC">POIC</a></th>
-      <th rowspan="2"><a href="https://web.archive.org/web/20160608015230/http://ilab.cs.ucsb.edu/tracking_dataset_ijcv/">UCSB</a></th>
+      <th rowspan="2">UCSB</th>
       <th rowspan="2"><a href="https://github.com/nku-zhichengzhang/MPOT">MPOT-3K</a></th>
     </tr>
     <tr><th>all</th><th>re-ann.</th></tr>
@@ -47,6 +47,17 @@ every annotated frame with the original annotation (all) and on the 1,004 frames
 WOFTSAM for every method; its SAM-H scores are the published ones (Table 1 of the WOFTSAM paper). Other
 SAM-H entries are our rescoring of the stored run. UCSB uses the original ground truth mapped to the raw
 frames with the calibration published with the dataset. Best results in bold, second best underlined.
+
+## Viewer
+
+`FlatSAM_demo.zip` contains a self-contained browser viewer (`viewer_demo/index.html`) with 12 sequences of the six
+benchmarks, the sequences of the paper's figures. Frame by frame it shows the ground truth, the
+SAM3 mask, the first and the refinement pass of FlatSAM with their keypoint and mask branches, and WOFTSAM and SAM-H.
+
+```bash
+unzip FlatSAM_demo.zip
+python3 viewer_demo/start_demo.py   # serves the folder on 127.0.0.1 and opens the viewer
+```
 
 ## Installation
 
@@ -70,28 +81,18 @@ Tested on Linux x86_64 with Python 3.12 and CUDA 12.6, on NVIDIA A100 and RTX 40
 
 ## Evaluation
 
-The scripts below reproduce the FlatSAM row of the results table: `run.py` runs the first pass and
-`subset_viewer/rerun/run_warp_pipeline.py` (the script of the paper's runs) the refinement pass on every frame
-rectified with its first-pass pose. Without `--config`, every script uses the final method
-(`configs/tracker/flatsam_final.py`, `DEMO_CONFIG` in `.env`).
-
-### 1. Get a dataset, track and evaluate
-
-Datasets go to `data/` by default (the `*_BASE` paths in `.env`); `--base-dir` overrides it per run.
+Each benchmark takes three commands, which reproduce the FlatSAM row of the results table:
 
 ```bash
-# refinement pass on every sequence of a finished first pass: refine <dataset key> <dataset folder>
-refine() {
-  { echo dataset,dataset_key,sequence,tier,base_dir
-    for f in results/flatsam_final/$2/*_debug.npz; do echo "$2,$1,$(basename "$f" _debug.npz),,"; done
-  } > results/tasks_$2.csv
-  n=$(( $(wc -l < results/tasks_$2.csv) - 1 ))
-  for ((i = 0; i < n; i++)); do
-    python subset_viewer/rerun/run_warp_pipeline.py --tasks results/tasks_$2.csv --task-index $i \
-      --outroot results/warp --mode canvas --max-scale 1 --first-pass-dir results/flatsam_final
-  done
-}
+python run.py <dataset> --save-masks              # first pass
+python refine.py <dataset>                        # refinement pass on every frame rectified with its first-pass pose
+python evaluate.py <dataset> --results-name warp  # p@5 and p@15 of the refinement pass, FlatSAM's output
 ```
+
+Without `--config`, `run.py` uses the final method (`configs/tracker/flatsam_final.py`, `DEMO_CONFIG` in `.env`).
+Datasets go to `data/` by default (the `*_BASE` paths in `.env`); `--base-dir` overrides it per run.
+
+### 1. Datasets
 
 **[POT-210](https://liangp.github.io/data/pot280/)** (objects V01–V30 of POT-280):
 
@@ -101,7 +102,7 @@ wget https://cmp.felk.cvut.cz/~serycjon/WOFT/results/POT-210-reannot_coarse_only
 tar xzf POT-210-reannot_coarse_onlychanged.tar.gz -C data/POT-210/annotation
 
 python run.py pot --save-masks
-refine pot POT-210
+python refine.py pot
 python evaluate.py pot --results-name warp                        # re-ann. column
 python evaluate.py pot --results-name warp --original-annotation  # all column
 ```
@@ -115,7 +116,7 @@ git clone --depth 1 https://github.com/serycjon/WOFTSAM
 cp -r WOFTSAM/PlanarTrack_init_reannotation data/PlanarTrack/
 
 python run.py pti --split test --save-masks
-refine planartrack-initfix PlanarTrackInitfix
+python refine.py pti
 python evaluate.py pti --split test --results-name warp
 ```
 
@@ -125,7 +126,7 @@ python evaluate.py pti --split test --results-name warp
 python scripts/download_pot280.py --root data/POT-280 --object all
 
 python run.py pot280 --save-masks
-refine pot280 POT-280
+python refine.py pot280
 python evaluate.py pot280 --results-name warp
 ```
 
@@ -135,12 +136,11 @@ python evaluate.py pot280 --results-name warp
 git clone --depth 1 https://github.com/LinChen-Cherry/POIC data/POIC
 
 python run.py poic --save-masks
-refine poic POIC
+python refine.py poic
 python evaluate.py poic --results-name warp
 ```
 
-**[UCSB](https://web.archive.org/web/20160608015230/http://ilab.cs.ucsb.edu/tracking_dataset_ijcv/)**: the frames are
-no longer publicly available; they can be obtained from the dataset's authors. Unpack them to `data/UCSB/<sequence>/`
+**UCSB:** Unpack to `data/UCSB/<sequence>/`
 (e.g. `data/UCSB/bricks_motion1/frame00001.jpg`), then add the corrected ground truth from
 [`ucsb_mapped_gt.zip`](ucsb_mapped_gt.zip) in this repository:
 
@@ -148,49 +148,28 @@ no longer publicly available; they can be obtained from the dataset's authors. U
 unzip -o -j ucsb_mapped_gt.zip 'ucsb_mapped_gt/*.txt' -d data/UCSB
 
 python run.py ucsb --save-masks
-refine ucsb UCSB
+python refine.py ucsb
 python evaluate.py ucsb --results-name warp
 ```
 
-**[MPOT-3K](https://github.com/nku-zhichengzhang/MPOT#mpot-3k-dataset)** (on request, see the link): download and unpack to
+**[MPOT-3K](https://github.com/nku-zhichengzhang/MPOT#mpot-3k-dataset)**: download and unpack to
 `data/MPOT-3K/` (`list/`, `test/`, ...), then:
 
 ```bash
 python run.py mpot --save-masks
-refine mpot MPOT-3K
+python refine.py mpot
 python evaluate.py mpot --results-name warp
 ```
 
-### 2. Output
+## Your own video
 
-`run.py` writes the first pass to `results/flatsam_final/<dataset>/`: one `<sequence>.txt` per sequence
-(4 corners per frame, `x1 y1 ... x4 y4`), `<sequence>_debug.npz` and, with `--save-masks`, the SAM3 masks the
-refinement pass reads. `refine` writes FlatSAM's output to `results/warp/<dataset>/<sequence>.txt` (same format).
-Both skip sequences that are already done, so an interrupted run can be restarted. `evaluate.py --results-name warp`
-prints the pooled P@5 and P@15 of the output (the FlatSAM row of the table above) and writes per-sequence scores to
-`eval_results.json` (`eval_results_all.json` with `--original-annotation`) in the same folder; without
-`--results-name` it scores the first pass, whose p@15 is (Table 4 of the paper):
-
-| POT-210 all | POT-210 re-ann. | POT-280 | PT<sub>TST</sub> | POIC | UCSB | MPOT-3K |
-|---:|---:|---:|---:|---:|---:|---:|
-| 97.1 | 98.3 | 96.7 | 86.9 | 99.3 | 97.5 | 92.6 |
-
-Results can differ slightly between GPU models. On an RTX 4000 SFF Ada a full POT-210 run takes about
-18 hours for the first pass and about as long again for the refinement pass. For a quick check, run a few sequences:
+`demo.py` tracks a planar object in any video and writes a copy with the tracked quadrilateral drawn in:
 
 ```bash
-python run.py pot --sequences V01_7 V12_1 --save-masks
-refine pot POT-210
-python evaluate.py pot --results-name warp --sequences V01_7 V12_1
+python demo.py video clip.mp4 --corners x1 y1 x2 y2 x3 y3 x4 y4   # writes clip_tracked.mp4
 ```
 
-### 3. Notes
+`--corners` are the four corners of the target in the first frame, in pixels, clockwise from the top-left.
 
-- **No training.** FlatSAM uses the pretrained SAM3 and LoMaR models as they are; nothing is trained or fine-tuned.
-- **Metric.** The alignment error of a frame is the root-mean-square distance of the four corners from the ground
-  truth; p@k is the percentage of annotated frames (frame 0 excluded) with error ≤ k px, pooled over all frames of a
-  benchmark (Eq. 3–4 of the paper).
-- **Runs.** Each result is a single run per benchmark with fixed random seeds (`--seed 0`, the default). CUDA kernels
-  are not forced to be deterministic, so results can differ slightly between runs and GPU models.
-- **Not included.** The ablations (Tables 2–4: single branches, branch oracle, corner order, threshold sweep) and the
-  bootstrap intervals (Supplementary Sec. E) were computed from stored runs and are not part of this demo.
+The demo runs the first pass only, without the refinement pass. For FlatSAM's full two-pass output, as reported in
+the paper, use `run.py` and `refine.py` as in [Evaluation](#evaluation).

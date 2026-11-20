@@ -190,7 +190,7 @@ def _save_resolved_config(repro_dir: Path, config: Optional[BaseModel]) -> None:
             If None, saves the default TrackerConfig.
     """
     if config is None:
-        from flatsam2.config import TrackerConfig
+        from flatsam.config import TrackerConfig
 
         config = TrackerConfig()
     # --- JSON (for quick inspection) ---
@@ -228,7 +228,7 @@ def _config_to_python(config: BaseModel) -> str:
     imports = ", ".join(class_names)
     lines = [
         f'"""Resolved config (auto-generated for reproducibility)."""',
-        f"from flatsam2.config import {imports}",
+        f"from flatsam.config import {imports}",
         "",
         f"config = {cls_name}(",
     ]

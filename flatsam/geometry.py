@@ -1,4 +1,4 @@
-"""Geometry utility functions shared across the flatsam2 package."""
+"""Geometry utility functions shared across the flatsam package."""
 
 import numpy as np
 

@@ -165,7 +165,7 @@ def get_sequences(
     intersection (preserving the subset-file order).
 
     Args:
-        dataset: Dataset key — any value from :data:`~flatsam2.registry.CLI_CHOICES`
+        dataset: Dataset key — any value from :data:`~flatsam.registry.CLI_CHOICES`
             (e.g. ``'pot'``, ``'planartrack'``, ``'planartrack-initfix'``, ``'pti'``).
         base_dir: Dataset root directory.
         sequences: Explicit list of sequence names to process.

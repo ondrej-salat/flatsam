@@ -12,11 +12,11 @@ import cv2
 import numpy as np
 from einops import rearrange
 
-from flatsam2.config import FullObjectCfg, HoughConfig
-from flatsam2.datasets import warp_corners
-from flatsam2.geometry import warp_points
-from flatsam2.hough_homography import _signed_area, mask_to_homography
-from flatsam2.match_naming import homography_from_corners
+from flatsam.config import FullObjectCfg, HoughConfig
+from flatsam.datasets import warp_corners
+from flatsam.geometry import warp_points
+from flatsam.hough_homography import _signed_area, mask_to_homography
+from flatsam.match_naming import homography_from_corners
 
 # GT centre, then the centres of its four quarters, as (x, y) in the GT's unit square
 _CLICKS_UNIT = np.array([[0.5, 0.5], [0.25, 0.25], [0.75, 0.25], [0.75, 0.75], [0.25, 0.75]])

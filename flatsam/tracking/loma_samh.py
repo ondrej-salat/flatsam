@@ -24,8 +24,8 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from flatsam2.tracking import flow_hough
-from flatsam2.tracking.common import (
+from flatsam.tracking import flow_hough
+from flatsam.tracking.common import (
     _CANDIDATE_MASK_H,
     CandidateScore,
     CorrectionTelemetry,
@@ -34,7 +34,7 @@ from flatsam2.tracking.common import (
 )
 
 if TYPE_CHECKING:
-    from flatsam2.tracker import FlatSAMTracker
+    from flatsam.tracker import FlatSAMTracker
 
 
 def track(

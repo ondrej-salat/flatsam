@@ -4,12 +4,12 @@ This module provides functions to load sequences, ground truth annotations,
 and image paths for planar object tracking datasets.
 
 The canonical dataset registry (:data:`DATASETS`, :class:`DatasetInfo`,
-:data:`CLI_CHOICES`) lives in :mod:`flatsam2.registry` and is re-exported
+:data:`CLI_CHOICES`) lives in :mod:`flatsam.registry` and is re-exported
 here for convenience.  All CLI scripts should import those names from here
-or directly from :mod:`flatsam2.registry`.
+or directly from :mod:`flatsam.registry`.
 
 Lightweight sequence-listing helpers (``get_sequences``, ``pot_sequences``,
-``pt_sequences``, ``load_sequence_list``) live in :mod:`flatsam2.sequences`
+``pt_sequences``, ``load_sequence_list``) live in :mod:`flatsam.sequences`
 and are re-exported here.
 """
 
@@ -25,11 +25,11 @@ from .registry import CLI_CHOICES, DATASETS, DatasetInfo
 from .sequences import get_sequences, load_sequence_list, pot_sequences, pt_sequences
 
 __all__ = [
-    # Registry (re-exported from flatsam2.registry)
+    # Registry (re-exported from flatsam.registry)
     "DatasetInfo",
     "DATASETS",
     "CLI_CHOICES",
-    # Sequence helpers (re-exported from flatsam2.sequences)
+    # Sequence helpers (re-exported from flatsam.sequences)
     "get_sequences",
     "load_sequence_list",
     "pot_sequences",

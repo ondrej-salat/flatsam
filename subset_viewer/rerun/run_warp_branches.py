@@ -25,13 +25,13 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from flatsam2.config import load_config_from_file
-from flatsam2.datasets import DATASETS, corners_to_mask, make_gt_loader, make_image_paths, warp_corners
-from flatsam2.path_config import DEFAULT_CONFIG, paths
-from flatsam2.tracker import FlatSAMTracker
+from flatsam.config import load_config_from_file
+from flatsam.datasets import DATASETS, corners_to_mask, make_gt_loader, make_image_paths, warp_corners
+from flatsam.path_config import DEFAULT_CONFIG, paths
+from flatsam.tracker import FlatSAMTracker
 
 CONFIG = DEFAULT_CONFIG  # demo: the final method (upstream: an experiment config in the author's checkout)
-POSEGATE = Path("$WORK/flatsam2/results/experiments/pose_gate_8dataset_20261110/tracker/loma_samh_matchnaming")
+POSEGATE = Path("$WORK/flatsam/results/experiments/pose_gate_8dataset_20261110/tracker/loma_samh_matchnaming")
 COND_LIMIT = 1e10
 TARGET_LONG = 384.0
 WINDOW = 3.0
@@ -63,7 +63,7 @@ def safe_homography(init, pred):
     return H / H[2, 2] if abs(float(H[2, 2])) > 1e-12 else H
 
 def dilate(mask_u8, px):
-    """Same square-kernel dilation as flatsam2.tracking.common._inflate_mask."""
+    """Same square-kernel dilation as flatsam.tracking.common._inflate_mask."""
     return cv2.dilate(mask_u8, np.ones((2 * px + 1, 2 * px + 1), np.uint8), iterations=1) if px > 0 else mask_u8
 
 def main():

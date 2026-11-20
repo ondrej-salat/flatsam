@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING, Optional
 
 import numpy as np
 
-from flatsam2.tracking.common import (
+from flatsam.tracking.common import (
     _CANDIDATE_FLOW,
     _CANDIDATE_LAST_H,
     _CANDIDATE_MASK_H,
@@ -30,7 +30,7 @@ from flatsam2.tracking.common import (
 )
 
 if TYPE_CHECKING:
-    from flatsam2.tracker import FlatSAMTracker
+    from flatsam.tracker import FlatSAMTracker
 
 logger = logging.getLogger(__name__)
 

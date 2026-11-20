@@ -17,9 +17,9 @@ import numpy as np
 from einops import rearrange
 from tqdm import tqdm
 
-from flatsam2 import match_naming
-from flatsam2.config import TrackerConfig, compute_output_dir, load_config_from_file
-from flatsam2.datasets import (
+from flatsam import match_naming
+from flatsam.config import TrackerConfig, compute_output_dir, load_config_from_file
+from flatsam.datasets import (
     CLI_CHOICES,
     DATASETS,
     get_sequences,
@@ -27,10 +27,10 @@ from flatsam2.datasets import (
     make_image_paths,
     warp_corners,
 )
-from flatsam2.path_config import DEFAULT_CONFIG, paths
-from flatsam2.reproducibility import save_run_info
-from flatsam2.tracker import _DEBUG_CANDIDATES, FlatSAMTracker, TrackResult
-from flatsam2.tracking.common import CorrectionTelemetry, MaskHTelemetry
+from flatsam.path_config import DEFAULT_CONFIG, paths
+from flatsam.reproducibility import save_run_info
+from flatsam.tracker import _DEBUG_CANDIDATES, FlatSAMTracker, TrackResult
+from flatsam.tracking.common import CorrectionTelemetry, MaskHTelemetry
 
 
 def _attach_persistent_error_log(output_dir: Path) -> Path:
@@ -51,9 +51,9 @@ def _attach_persistent_error_log(output_dir: Path) -> Path:
     repro_dir.mkdir(parents=True, exist_ok=True)
     log_path = repro_dir / "track_errors.log"
 
-    flatsam2_logger = logging.getLogger("flatsam2")
-    for existing in flatsam2_logger.handlers:
-        if getattr(existing, "_flatsam2_track_error_handler", False):
+    flatsam_logger = logging.getLogger("flatsam")
+    for existing in flatsam_logger.handlers:
+        if getattr(existing, "_flatsam_track_error_handler", False):
             return log_path  # already attached (run_experiments called twice)
 
     handler = logging.FileHandler(log_path)
@@ -61,10 +61,10 @@ def _attach_persistent_error_log(output_dir: Path) -> Path:
     handler.setFormatter(
         logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s")
     )
-    handler._flatsam2_track_error_handler = True  # type: ignore[attr-defined]
-    flatsam2_logger.addHandler(handler)
-    if flatsam2_logger.level == logging.NOTSET or flatsam2_logger.level > logging.WARNING:
-        flatsam2_logger.setLevel(logging.WARNING)
+    handler._flatsam_track_error_handler = True  # type: ignore[attr-defined]
+    flatsam_logger.addHandler(handler)
+    if flatsam_logger.level == logging.NOTSET or flatsam_logger.level > logging.WARNING:
+        flatsam_logger.setLevel(logging.WARNING)
     return log_path
 
 
@@ -141,7 +141,7 @@ def _save_debug(
     frames.
 
     The npz holds arrays of length T (tracked frames = total minus the init
-    frame). For each candidate in :data:`flatsam2.tracker._DEBUG_CANDIDATES`
+    frame). For each candidate in :data:`flatsam.tracker._DEBUG_CANDIDATES`
     (``flow_H``, ``redetection_flow_H``, ``mask_H``, ``loma_H``, ``samh_H``):
         <cand>        — (T, 3, 3), NaN when the candidate was not computed
     plus:
@@ -487,7 +487,7 @@ def main() -> int:
         action="store_true",
         help=(
             "Additionally request deterministic CUDA kernels (cuDNN/cuBLAS) before "
-            "running (see flatsam2.determinism). Off by default — carries a runtime "
+            "running (see flatsam.determinism). Off by default — carries a runtime "
             "penalty (autotuner off); use it to compare outputs bit-for-bit across "
             "runs. RNG seeding happens regardless (see --seed)."
         ),
@@ -506,11 +506,11 @@ def main() -> int:
     args.output_dir = args.output_dir.expanduser()
 
     if args.deterministic:
-        from flatsam2.determinism import set_global_determinism
+        from flatsam.determinism import set_global_determinism
 
         set_global_determinism(args.seed)
     else:
-        from flatsam2.determinism import set_reproducible_seeds
+        from flatsam.determinism import set_reproducible_seeds
 
         set_reproducible_seeds(args.seed)
 

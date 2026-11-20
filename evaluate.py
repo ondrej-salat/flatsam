@@ -14,15 +14,15 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 from einops import rearrange
 
-from flatsam2.config import compute_output_dir
-from flatsam2.datasets import (
+from flatsam.config import compute_output_dir
+from flatsam.datasets import (
     CLI_CHOICES,
     DATASETS,
     get_sequences,
     make_gt_loader,
 )
-from flatsam2.metrics import aggregate_results, evaluate_sequence
-from flatsam2.path_config import DEFAULT_CONFIG, paths
+from flatsam.metrics import aggregate_results, evaluate_sequence
+from flatsam.path_config import DEFAULT_CONFIG, paths
 
 
 def load_predictions(results_dir: Path, seq_name: str) -> np.ndarray:
@@ -89,7 +89,7 @@ def evaluate_dataset(
     ds_info = DATASETS[dataset]
     load_gt_fn = make_gt_loader(dataset, initfix_dir, original_annotation)
     # Results normally live under the config's stem; ``results_name`` names the
-    # directory directly, for runs whose directory is not a flatsam2 config.
+    # directory directly, for runs whose directory is not a flatsam config.
     if results_name is not None:
         results_dir = base_results_dir / results_name / ds_info.label
     else:
@@ -247,7 +247,7 @@ def main(argv=None) -> int:
         default=None,
         help=(
             "Name of the results sub-directory under --results-dir, used instead "
-            "of the config stem. For runs not produced by a flatsam2 config."
+            "of the config stem. For runs not produced by a flatsam config."
         ),
     )
     parser.add_argument(

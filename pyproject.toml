@@ -1,5 +1,5 @@
 [project]
-name = "flatsam2"
+name = "flatsam"
 version = "0.0.0"
 description = "FlatSAM: a planar object tracker using SAM and ptlflow"
 readme = "README.md"
@@ -24,10 +24,10 @@ dependencies = [
   "einops",
 ]
 
-# Explicitly package only the source in `flatsam2/`
+# Explicitly package only the source in `flatsam/`
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["flatsam2*"]
+include = ["flatsam*"]
 
 [build-system]
 requires = ["setuptools>=61.0,<81", "wheel"]

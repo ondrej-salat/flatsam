@@ -18,7 +18,7 @@ from typing import Optional, Tuple
 
 import numpy as np
 
-from flatsam2.datasets import warp_corners
+from flatsam.datasets import warp_corners
 
 LOMA = "loma_H"
 SAMH = "samh_H"

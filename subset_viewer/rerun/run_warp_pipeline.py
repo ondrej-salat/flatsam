@@ -2,7 +2,7 @@
 """Two-stage warped pipeline, branch-only rerun (written 2026-11-13).
 
 Stage 1, first pass (offline from the stored replay): the per-frame choice between the keypoint (LoMa) pose and the
-mask (Hough) pose is made by ``flatsam2.gate.select_pose``:
+mask (Hough) pose is made by ``flatsam.gate.select_pose``:
   n >= 35 -> LoMa;  8 < n < 35 and the LoMa quad agrees with the Hough quad on 2 corners within the RANSAC threshold (5 px) -> LoMa;
   else the mask branch.
 The two branches are independent of this choice (decoupled), so the stored ``loma_H`` / ``samh_H`` / ``n_inliers`` of the
@@ -23,12 +23,12 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from flatsam2 import gate, runinfo
-from flatsam2.profiling import profiler
-from flatsam2.config import load_config_from_file
-from flatsam2.datasets import DATASETS, corners_to_mask, make_gt_loader, make_image_paths, warp_corners
-from flatsam2.path_config import paths
-from flatsam2.tracker import FlatSAMTracker
+from flatsam import gate, runinfo
+from flatsam.profiling import profiler
+from flatsam.config import load_config_from_file
+from flatsam.datasets import DATASETS, corners_to_mask, make_gt_loader, make_image_paths, warp_corners
+from flatsam.path_config import paths
+from flatsam.tracker import FlatSAMTracker
 from run_warp_branches import (CONFIG, INFLATE_PX, POSEGATE, TARGET_LONG, WINDOW, NoSegmenter, corner_error, dilate, load_pose,
                                safe_homography)
 
@@ -91,10 +91,9 @@ def local_rectifier(init, pose):
     return R / R[2, 2] if np.isfinite(cond) and cond < 1e10 and abs(float(R[2, 2])) > 1e-12 else None
 
 
-def main():
-    t_main = time.perf_counter()
+def build_parser():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--tasks", required=True); ap.add_argument("--task-index", type=int, required=True)
+    ap.add_argument("--tasks"); ap.add_argument("--task-index", type=int)
     ap.add_argument("--outroot", required=True); ap.add_argument("--mode", choices=["full", "canvas", "local"], required=True,
                     help="full: frame-sized canvas, object mapped to its frame-0 size; canvas: 3x crop window, object mapped to its frame-0 size (scaled by s); "
                          "local: frame-sized canvas, perspective and rotation removed but the object keeps its current size and position")
@@ -110,9 +109,19 @@ def main():
     ap.add_argument("--config", default=None, help="tracker config for the rerun (default: the replay config)")
     ap.add_argument("--base-dir", default=None)
     ap.add_argument("--dry-run", action="store_true")
-    args = ap.parse_args()
+    return ap
+
+
+def main():
+    ap = build_parser(); args = ap.parse_args()
+    if args.tasks is None or args.task_index is None: ap.error("--tasks and --task-index are required")
     task = list(csv.DictReader(open(args.tasks, newline="")))[args.task_index]
-    dataset, label, seq = task["dataset_key"], task["dataset"], task["sequence"]
+    refine_sequence(args, task["dataset_key"], task["dataset"], task["sequence"], args.base_dir or task.get("base_dir") or None)
+
+
+def refine_sequence(args, dataset, label, seq, bd):
+    """Rectify every frame of one sequence with its first-pass pose and rerun both branches; ``bd``: dataset dir or None."""
+    t_main = time.perf_counter()
     outdir = Path(args.outroot) / label; outdir.mkdir(parents=True, exist_ok=True)
     pose_out, sidecar, summary_out = outdir / f"{seq}.txt", outdir / f"{seq}_rectification.npz", outdir / f"{seq}_summary.json"
     if pose_out.exists() and sidecar.exists() and summary_out.exists() and not args.dry_run:
@@ -123,7 +132,6 @@ def main():
     if not mdir.is_dir(): raise ValueError(f"No original SAM3 masks for {label}/{seq}: {mdir}")
     initfix = paths.PT_INITFIX_DIR if dataset == "planartrack-initfix" else None
     gt_loader = make_gt_loader(dataset, initfix_dir=initfix)
-    bd = args.base_dir or task.get("base_dir") or None
     base_dir = Path(bd) if bd else Path(getattr(paths, info.base_dir_attr))
     gt, gt_valid = gt_loader(base_dir, seq)
     image_paths = make_image_paths(dataset)(base_dir, seq)

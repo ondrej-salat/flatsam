@@ -14,7 +14,7 @@ model, for one 2-bit decision.
 This config replaces the whole stage with the measurement the keypoint matcher already
 affords: score each of the four shifts by how much of its **raw, pre-RANSAC**
 correspondence set the shift explains, under a truncated quadratic, and take the best
-(``flatsam2.match_naming``). No second network, no temporal run length, no gate — it is
+(``flatsam.match_naming``). No second network, no temporal run length, no gate — it is
 cheap enough to run every frame, so ``only_when_lost`` and ``n_correspondences_enough``
 stop applying too. Six parameters out, one (``tau``) in.
 

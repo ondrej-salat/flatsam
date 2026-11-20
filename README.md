@@ -1,4 +1,4 @@
-# FlatSAM: Segmentation-Focused Correspondences for Precise and Robust Planar Tracking
+# FlatSAM: Segmentation-Guided Correspondences for Precise and Robust Planar Tracking 
 
 ## Abstract
 
@@ -141,10 +141,11 @@ python refine.py poic
 python evaluate.py poic --results-name warp
 ```
 
-**UCSB:** the frames with the corrected ground truth are in this repository, split into three zips in `data/`:
+**UCSB:** the frames with the corrected ground truth are in this repository, split into three zips in `data/`
+(`data/ucsb_mapped_gt.zip` holds the corrected ground truth alone):
 
 ```bash
-for z in data/ucsb_*.zip; do unzip -q $z -d data; done
+for z in data/ucsb_[123].zip; do unzip -q $z -d data; done
 
 python run.py ucsb --save-masks
 python refine.py ucsb

@@ -142,7 +142,8 @@ python evaluate.py poic --results-name warp
 ```
 
 **UCSB**: the frames are
-no longer publicly available; they can be obtained from the dataset's authors. Unpack them to `data/UCSB/<sequence>/`
+no longer publicly available; they can be obtained from the dataset's authors (after acceptance, the public release of
+this repository will include them, with the corrected ground truth, as zips in `data/`). Unpack them to `data/UCSB/<sequence>/`
 (e.g. `data/UCSB/bricks_motion1/frame00001.jpg`), then add the corrected ground truth from `data/ucsb_mapped_gt.zip`:
 
 ```bash

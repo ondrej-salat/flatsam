@@ -141,11 +141,10 @@ python refine.py poic
 python evaluate.py poic --results-name warp
 ```
 
-**UCSB:** the frames and the corrected ground truth (the same as in [`ucsb_mapped_gt.zip`](ucsb_mapped_gt.zip)) are in
-this repository, split into three zips:
+**UCSB:** the frames with the corrected ground truth are in this repository, split into three zips in `data/`:
 
 ```bash
-for z in ucsb_*.zip; do unzip -q $z -d data; done
+for z in data/ucsb_*.zip; do unzip -q $z -d data; done
 
 python run.py ucsb --save-masks
 python refine.py ucsb

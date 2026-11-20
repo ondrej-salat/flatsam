@@ -12,7 +12,8 @@ venv/
 # demo outputs + local datasets (.env defaults)
 /results/
 /vis/
-/data/
+/data/*
+!/data/ucsb_*.zip
 *.mp4
 
 # IDE

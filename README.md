@@ -141,11 +141,12 @@ python refine.py poic
 python evaluate.py poic --results-name warp
 ```
 
-**UCSB:** the frames with the corrected ground truth are in this repository, split into three zips in `data/`
-(`data/ucsb_mapped_gt.zip` holds the corrected ground truth alone):
+**[UCSB](https://web.archive.org/web/20160608015230/http://ilab.cs.ucsb.edu/tracking_dataset_ijcv/)**: the frames are
+no longer publicly available; they can be obtained from the dataset's authors. Unpack them to `data/UCSB/<sequence>/`
+(e.g. `data/UCSB/bricks_motion1/frame00001.jpg`), then add the corrected ground truth from `data/ucsb_mapped_gt.zip`:
 
 ```bash
-for z in data/ucsb_[123].zip; do unzip -q $z -d data; done
+unzip -o -j data/ucsb_mapped_gt.zip 'ucsb_mapped_gt/*.txt' -d data/UCSB
 
 python run.py ucsb --save-masks
 python refine.py ucsb

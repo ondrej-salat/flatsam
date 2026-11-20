@@ -111,7 +111,7 @@ _DATASET_DEFS: Tuple[DatasetInfo, ...] = (
         seq_subdir="sequences",
         gt_subdir="gt",
     ),
-    # UCSB with the corrected ground truth (data/ucsb_*.zip): the original GT is ~20 px off on the raw frames.
+    # UCSB with the corrected ground truth (data/ucsb_mapped_gt.zip): the original GT is ~20 px off on the raw frames.
     DatasetInfo(
         key="ucsb",
         aliases=(),

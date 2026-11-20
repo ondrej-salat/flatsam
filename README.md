@@ -59,9 +59,7 @@ python3 FlatSAM_demo/viewer_demo/start_demo.py   # opens the viewer in the brows
 ```
 
 You can also open [`FlatSAM_demo/viewer_demo/index.html`](FlatSAM_demo/viewer_demo/index.html) directly in a browser,
-without Python. Everything works except **Screenshot** and **Record**, because a page opened from a file cannot read
-its own images.
-
+without Python. Everything works except **Screenshot** and **Record**.
 ## Installation
 
 ```bash
@@ -143,12 +141,11 @@ python refine.py poic
 python evaluate.py poic --results-name warp
 ```
 
-**UCSB:** Unpack to `data/UCSB/<sequence>/`
-(e.g. `data/UCSB/bricks_motion1/frame00001.jpg`), then add the corrected ground truth from
-[`ucsb_mapped_gt.zip`](ucsb_mapped_gt.zip) in this repository:
+**UCSB:** the frames and the corrected ground truth (the same as in [`ucsb_mapped_gt.zip`](ucsb_mapped_gt.zip)) are in
+this repository, split into three zips:
 
 ```bash
-unzip -o -j ucsb_mapped_gt.zip 'ucsb_mapped_gt/*.txt' -d data/UCSB
+for z in ucsb_*.zip; do unzip -q $z -d data; done
 
 python run.py ucsb --save-masks
 python refine.py ucsb

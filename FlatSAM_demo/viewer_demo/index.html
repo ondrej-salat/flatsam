@@ -27,7 +27,7 @@ button, select { background: var(--surface-2); border: 1px solid var(--border); 
 button:hover, select:hover { border-color: var(--text-muted); }
 button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
-.app { display: grid; height: 100vh; grid-template-columns: var(--sideW, clamp(300px, 22vw, 340px)) minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); grid-template-areas: "head head" "side main"; }
+.app { display: grid; height: 100vh; grid-template-columns: var(--sideW, clamp(400px, 27vw, 450px)) minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); grid-template-areas: "head head" "side main"; }
 header { grid-area: head; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; padding: 10px 16px; border-bottom: 1px solid var(--border); background: var(--surface-1); }
 header h1 { font-size: 15px; margin: 0 8px 0 0; font-weight: 600; }
 header .sub { color: var(--text-secondary); }
@@ -42,8 +42,9 @@ aside.side { grid-area: side; display: flex; flex-direction: column; min-height:
 aside.side { min-width: 0; overflow: hidden; }
 .seqlist { overflow: auto; flex: 1; }
 .seqlist table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-.seqlist th:nth-child(n+2), .seqlist td:nth-child(n+2) { width: 52px; }
-.seqlist th:nth-child(3), .seqlist td:nth-child(3) { width: 76px; }
+.seqlist th:nth-child(n+2), .seqlist td:nth-child(n+2) { width: 58px; }
+.seqlist th:nth-child(3), .seqlist td:nth-child(3) { width: 68px; }
+.seqlist th:nth-child(5), .seqlist td:nth-child(5) { width: 54px; }
 .seqlist th[data-sort] { cursor: pointer; user-select: none; white-space: normal; line-height: 1.2; vertical-align: bottom; }
 .seqlist th[data-sort]:hover { color: var(--text-primary, #fff); }
 .seqlist th { position: sticky; top: 0; background: var(--surface-1); text-align: right; font-weight: 500; color: var(--text-muted); font-size: 11px; padding: 6px 5px; border-bottom: 1px solid var(--border); }
@@ -84,7 +85,7 @@ main { grid-area: main; display: flex; flex-direction: column; min-height: 0; mi
 .resizer { position: fixed; top: 0; bottom: 0; width: 8px; z-index: 30; cursor: col-resize; touch-action: none; }
 .resizer::after { content: ""; position: absolute; top: 0; bottom: 0; left: 3px; width: 2px; background: transparent; transition: background .12s; }
 .resizer:hover::after, .resizer.drag::after { background: var(--accent); }
-#rzL { left: calc(var(--sideW, clamp(300px, 22vw, 340px)) - 4px); }
+#rzL { left: calc(var(--sideW, clamp(400px, 27vw, 450px)) - 4px); }
 @media (max-width: 1100px) { .resizer { display: none; } }
 .viewbar { flex: none; display: flex; gap: 6px; align-items: center; padding: 6px 8px; background: var(--surface-1); border-bottom: 1px solid var(--border); }
 .viewbar button { padding: 2px 10px; }
@@ -112,6 +113,7 @@ main { grid-area: main; display: flex; flex-direction: column; min-height: 0; mi
 .qf img { display: block; user-select: none; }
 .qf canvas, .qf svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .transport { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+#playBtn { width: 64px; text-align: center; }
 .transport input[type=range] { flex: 1; min-width: 160px; accent-color: var(--accent); }
 .transport .fr { min-width: 92px; text-align: right; color: var(--text-secondary); }
 .charts { position: relative; flex: none; display: grid; grid-template-rows: repeat(3, minmax(0, 1fr)); gap: 6px; height: var(--chartsH, 288px); }
@@ -190,7 +192,7 @@ table.lt tr.na label { cursor: not-allowed; }
     </div>
     <div class="seqlist">
       <table>
-        <thead><tr><th data-sort="name" data-label="Sequence" title="Sort by name">Sequence</th><th data-sort="op15" data-label="First pass" title="First pass: P@15 over the whole sequence (click to sort)">First pass</th><th data-sort="wp15" data-label="Refinement pass" title="Refinement pass: P@15 over the whole sequence (click to sort)">Refinement pass</th><th data-sort="delta" data-label="Δ" title="Refinement pass minus first pass, percentage points of P@15 (click to sort)">Δ</th></tr></thead>
+        <thead><tr><th data-sort="name" data-label="Sequence" title="Sort by name">Sequence</th><th data-sort="wp15" data-label="FlatSAM" title="FlatSAM (refinement pass): P@15 over the whole sequence (click to sort)">FlatSAM</th><th data-sort="wfp15" data-label="WOFTSAM" title="WOFTSAM: P@15 over the whole sequence (click to sort)">WOFTSAM</th><th data-sort="shp15" data-label="SAM-H" title="SAM-H: P@15 over the whole sequence (click to sort)">SAM-H</th><th data-sort="delta" data-label="Δ" title="FlatSAM minus the better of WOFTSAM and SAM-H, percentage points of P@15 (click to sort)">Δ</th></tr></thead>
         <tbody id="seqBody"></tbody>
       </table>
     </div>
@@ -199,7 +201,7 @@ table.lt tr.na label { cursor: not-allowed; }
   <svg width="0" height="0" style="position:absolute" aria-hidden="true"><filter id="redonly" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="0.299 0.587 0.114 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0"/></filter></svg>
   <main>
     <div class="stage-wrap" id="stageWrap">
-      <div class="viewbar" id="viewbar"><button id="zoomIn" title="Zoom in (the mouse does not zoom: drag or scroll moves the zoomed windows, double-click resets)">+</button><button id="zoomOut" title="Zoom out">−</button><button id="zoomReset" title="Reset the zoom (double-click or key 0)">Reset</button><span class="num" id="zoomLabel">1.0×</span><button id="shotBtn" title="Save a PNG of the four windows at this frame; the frame statistics are stored in the PNG metadata (key p)">Screenshot</button><button id="mp4Btn" title="Record the whole sequence as an MP4 of the four windows (needs a recent Chrome or Edge)">Record</button><button id="paperBtn" style="display:none">Paper frame</button></div>
+      <div class="viewbar" id="viewbar"><button id="zoomIn" title="Zoom in (the mouse does not zoom: drag or scroll moves the zoomed windows, double-click resets)">+</button><button id="zoomOut" title="Zoom out">−</button><button id="zoomReset" title="Reset the zoom (double-click or key 0)">Reset</button><span class="num" id="zoomLabel">1.0×</span><button id="paperBtn" style="display:none">Paper frame</button><button id="shotBtn" title="Save a PNG of the four windows at this frame; the frame statistics are stored in the PNG metadata (key p)">Screenshot</button><button id="mp4Btn" title="Click Record, then press Play: the shown frames are recorded as an MP4 of the four windows until you pause (a recent Chrome, Edge, Firefox or Safari on localhost)">Record</button></div>
       <div class="quad" id="quad"></div>
       <div class="stage-msg" id="stageMsg">Loading manifest…</div>
     </div>
@@ -231,7 +233,7 @@ table.lt tr.na label { cursor: not-allowed; }
     <h3>Mouse</h3>
     <table><tr><td>drag, scroll</td><td>move the zoomed windows (the mouse does not zoom; use + and −)</td></tr><tr><td>double-click</td><td>reset the zoom</td></tr><tr><td>edge of the list, bar above the graphs</td><td>drag to change the size; drag to the edge of the screen to hide the panel, click the tab at the edge to show it again</td></tr><tr><td>click in a graph</td><td>go to that frame (drag to scrub)</td></tr></table>
     <h3>Buttons</h3>
-    <table><tr><td>Paper frame</td><td>jump to the frame shown in the paper (when the sequence has one)</td></tr><tr><td>Screenshot</td><td>PNG of the four windows with the numbers of the frame</td></tr><tr><td>Record</td><td>MP4 of the whole sequence, with the warp overlays that are on</td></tr></table>
+    <table><tr><td>Paper frame</td><td>jump to the frame shown in the paper (when the sequence has one)</td></tr><tr><td>Screenshot</td><td>PNG of the four windows with the numbers of the frame</td></tr><tr><td>Δ</td><td>FlatSAM (refinement pass) minus the better of WOFTSAM and SAM-H, in points of the chosen P@k; positive = FlatSAM is better</td></tr><tr><td>WOFTSAM, SAM-H</td><td>the SAM 2 versions of the main table of the paper</td></tr><tr><td>Record</td><td>click Record, then Play: the frames shown while playing are recorded as an MP4 of the four windows (with the frame number and the warp overlay that is on); Pause or the end of the sequence saves it</td></tr></table>
   </div><div>
     <h3>Layers</h3>
     <table id="helpLayers"></table>
@@ -435,6 +437,8 @@ const SORTS = {
   name:  { key: r => r.dataset.toLowerCase() + "/" + r.sequence.toLowerCase(), str: true },
   op15:  { key: r => r[mk("original_p15")] },
   wp15:  { key: r => r[mk("warp_p15")] },
+  wfp15: { key: r => r[mk("woft_p15")] },
+  shp15: { key: r => r[mk("samhb_p15")] },
   delta: { key: r => deltaVal(r) },
   order: { key: r => r._i },
 };
@@ -457,7 +461,7 @@ function toggleFlag(r) {
   refreshFlagUi();
   if ($("dsFilter").value === "__flagged") renderList();
 }
-const deltaVal = r => { const a = r[mk("warp_p15")], b = r[mk("original_p15")]; return typeof a === "number" && typeof b === "number" ? a - b : null; };   // refinement pass minus first pass
+const deltaVal = r => { const a = r[mk("warp_p15")], w = r[mk("woft_p15")], h = r[mk("samhb_p15")], b = [w, h].filter(x => typeof x === "number"); return typeof a === "number" && b.length ? a - Math.max(...b) : null; };   // FlatSAM (refinement pass) minus the better of the two baselines
 const deltaText = r => { const v = deltaVal(r); return v === null || v === undefined ? "–" : pp(v); };
 const deltaClass = r => { const v = deltaVal(r); return v > 0.05 ? "pos" : v < -0.05 ? "neg" : ""; };
 
@@ -484,8 +488,9 @@ function renderList() {
     const tr = document.createElement("tr");
     if (S.seq && S.seq.dataset === r.dataset && S.seq.sequence === r.sequence) tr.className = "active";
     tr.innerHTML = `<td title="${r.dataset}/${r.sequence}"><span class="flag${FLAGS.has(flagKey(r)) ? " on" : ""}" data-k="${flagKey(r)}" title="Star this sequence (key f)">${FLAGS.has(flagKey(r)) ? "\u2605" : "\u2606"}</span>${r.sequence}<span class="ds">${dsName(r.dataset)}${r.rotated ? ' <span class="tier" title="Portrait frames are shown turned 90° clockwise so that the long side is horizontal; the scores are unchanged">rotated</span>' : ""}</span></td>
-      <td class="num" title="First pass P@${S.thr}">${r[mk("original_p15")] === null || r[mk("original_p15")] === undefined ? "--" : r[mk("original_p15")].toFixed(1)}</td>
       <td class="num" title="Refinement pass P@${S.thr}">${r[mk("warp_p15")] === null || r[mk("warp_p15")] === undefined ? "--" : r[mk("warp_p15")].toFixed(1)}</td>
+      <td class="num" title="WOFTSAM P@${S.thr}">${r[mk("woft_p15")] === null || r[mk("woft_p15")] === undefined ? "--" : r[mk("woft_p15")].toFixed(1)}</td>
+      <td class="num" title="SAM-H P@${S.thr}">${r[mk("samhb_p15")] === null || r[mk("samhb_p15")] === undefined ? "--" : r[mk("samhb_p15")].toFixed(1)}</td>
       <td class="num delta ${deltaClass(r)}">${deltaText(r)}</td>`;
     tr.querySelector(".flag").onclick = e => { e.stopPropagation(); toggleFlag(r); };
     tr.onclick = () => openSeq(r.dataset, r.sequence, r.start || 0);
@@ -835,19 +840,21 @@ window.addEventListener("mousemove", ev => { if (tlDrag) setFrame(tlFrameAt(ev, 
 window.addEventListener("mouseup", () => { tlDrag = null; });
 
 // ---------------------------------------------------------------- playback
-function stop() { S.playing = false; $("playBtn").textContent = "Play"; }
+function stop() { S.playing = false; $("playBtn").textContent = "Play"; if (typeof REC !== "undefined" && REC.active) recFinish(); }
 function play() {
   if (!S.seq) return;
   if (S.frame >= S.seq.frames - 1) setFrame(0);
   S.playing = true; $("playBtn").textContent = "Pause"; S.lastTick = 0;
+  if (REC.armed && !REC.active) { REC.starting = true; recStart().catch(e => { REC.armed = false; recButton(); alert("The recording failed: " + e.message); }).finally(() => { REC.starting = false; }); }
   requestAnimationFrame(tick);
 }
 function tick(ts) {
   if (!S.playing) return;
+  if (REC.starting) { requestAnimationFrame(tick); return; }      // the recorder is being set up: do not skip frames
   if (ts - S.lastTick >= 1000 / FPS) {
     S.lastTick = ts;
     if (S.frame >= S.seq.frames - 1) { stop(); return; }
-    setFrame(S.frame + 1);
+    setFrame(S.frame + 1); recPush(S.frame);
   }
   requestAnimationFrame(tick);
 }
@@ -963,7 +970,8 @@ function quadLayout(d, tileW) {
 async function drawComposite(g, d, i, im, L, warpCanvas) {   // warpCanvas(k): a canvas with the warp overlay of window k, or null
   g.fillStyle = "#0b0b0a"; g.fillRect(0, 0, L.W, L.H);
   g.textBaseline = "middle"; g.textAlign = "left"; g.font = "600 15px -apple-system, Helvetica, Arial, sans-serif"; g.fillStyle = "#e6edf3";
-  g.fillText(`${dsName(d.dataset)} / ${d.sequence} · frame ${i} / ${d.frames - 1}`, QGAP, QTOP / 2 + 1);
+  g.fillText(`${dsName(d.dataset)} / ${d.sequence}`, QGAP, QTOP / 2 + 1);
+  g.textAlign = "right"; g.font = "700 20px ui-monospace, Menlo, monospace"; g.fillText(`frame ${i} / ${d.frames - 1}`, L.W - QGAP, QTOP / 2 + 1); g.textAlign = "left";
   for (let k = 0; k < 4; k++) {
     const p = QPANELS[k], x = QGAP + (k % 2) * (L.tileW + QGAP), y = QTOP + QGAP + Math.floor(k / 2) * (L.tileH + QHEAD + QGAP), ty = y + QHEAD;
     g.fillStyle = "#1a1a19"; g.fillRect(x, y, L.tileW, QHEAD);
@@ -998,7 +1006,12 @@ async function screenshot() {
 $("shotBtn").onclick = screenshot;
 
 // ---------------------------------------------------------------- recording of the whole sequence as an MP4 of the four windows (WebCodecs + mp4-muxer)
-let mp4Running = false, mp4Cancel = false;
+// Record: click Record, then press Play; the frames that are shown while playing go into the MP4, Pause (or the end of the sequence, or a seek) saves it.
+const REC = { armed: false, active: false, saving: false };
+function recButton() {
+  const b = $("mp4Btn");
+  b.textContent = REC.saving ? `Record: saving ${REC.pct || 0}%` : REC.active ? `● Recording ${REC.n} (pause to save)` : REC.armed ? "Record: press Play" : "Record";
+}
 function lastVal(arr, i) { if (!arr) return null; for (let k = i; k >= 0; k--) if (arr[k] !== null && arr[k] !== undefined) return arr[k]; return null; }
 function loadImage(src) { return new Promise((ok, bad) => { const im = new Image(); im.onload = () => ok(im); im.onerror = () => bad(new Error("cannot load " + src)); im.src = src; }); }
 async function loadMuxer() {
@@ -1006,47 +1019,67 @@ async function loadMuxer() {
   await new Promise((ok, bad) => { const s = document.createElement("script"); s.src = "vendor/mp4-muxer.js"; s.onload = ok; s.onerror = () => bad(new Error("vendor/mp4-muxer.js is missing")); document.head.appendChild(s); });
   return window.Mp4Muxer;
 }
+
+async function recStart() {
+  const d = S.seq; if (!d || REC.active) return;
+  const Mux = await loadMuxer(), L = quadLayout(d, 640), W = L.W, H = L.H;
+  const cfg = { codec: "avc1.640033", width: W, height: H, bitrate: 8e6, framerate: FPS };
+  const sup = await VideoEncoder.isConfigSupported(cfg); if (!sup.supported) throw new Error("H.264 encoding of " + W + "x" + H + " is not supported here");
+  const muxer = new Mux.Muxer({ target: new Mux.ArrayBufferTarget(), video: { codec: "avc", width: W, height: H }, fastStart: "in-memory" });
+  const r = Object.assign(REC, { err: null, d, L, muxer, queue: [], n: 0, done: 0, pct: 0, active: true, working: false });
+  r.enc = new VideoEncoder({ output: (c, m) => muxer.addVideoChunk(c, m), error: e => { r.err = e; } });
+  r.enc.configure(cfg);
+  // windows with the warp overlay switched on get their own off-screen warper at the size of the recording
+  r.wp = QPANELS.map(p => { if (p.key !== "gt" || !S.warpOn || !S.initImg) return null; try { const c = document.createElement("canvas"); c.width = L.tileW; c.height = L.tileH; const w = new Warper(c); if (!w.ok) return null; w.setImage(S.initImg); return { c, w, from: d.layers.original ? "original" : "rerun" }; } catch (e) { return null; } });
+  r.cv = document.createElement("canvas"); r.cv.width = W; r.cv.height = H; r.g = r.cv.getContext("2d");
+  recButton(); recPush(S.frame);
+}
+function recPush(i) { if (!REC.active) return; REC.queue.push(i); REC.n++; recButton(); recWork(); }
+async function recWork() {
+  const r = REC; if (r.working) return; r.working = true;
+  try {
+    while (r.queue.length) {
+      if (S.seq !== r.d) { r.queue.length = 0; break; }                 // another sequence was opened: keep what is encoded so far
+      const i = r.queue.shift(), d = r.d, im = await loadImage(frameSrc(i));
+      for (const x of r.wp) if (x) { const q = d.layers[x.from] ? d.layers[x.from][i] : null, Hm = q && d.init_quad ? homography(d.init_quad, q) : null; if (!Hm || !x.w.draw(Hm, d.width, d.height, d.init_quad, false, 0.55, true)) x.w.clear(); }
+      await drawComposite(r.g, d, i, im, r.L, k => r.wp[k] ? r.wp[k].c : null);
+      const vf = new VideoFrame(r.cv, { timestamp: Math.round(r.done * 1e6 / FPS), duration: Math.round(1e6 / FPS) });
+      r.enc.encode(vf, { keyFrame: r.done % 60 === 0 }); vf.close(); r.done++;
+      while (r.enc.encodeQueueSize > 6) await new Promise(ok => setTimeout(ok, 5));
+      if (r.err) throw r.err;
+      if (!r.active) { r.pct = Math.round(100 * r.done / (r.done + r.queue.length)); recButton(); }
+    }
+  } catch (e) { r.err = e; r.queue.length = 0; }
+  r.working = false;
+}
+async function recFinish() {                                          // called when playback stops while recording
+  const r = REC; if (!r.active || r.saving) return;
+  r.active = false; r.saving = true; recButton();
+  try {
+    while (r.working || r.queue.length) { if (!r.working) recWork(); await new Promise(ok => setTimeout(ok, 20)); }
+    if (r.err) throw r.err;
+    if (!r.done) throw new Error("no frame was recorded");
+    await r.enc.flush(); if (r.err) throw r.err; r.muxer.finalize();
+    const d = r.d, a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([r.muxer.target.buffer], { type: "video/mp4" }));
+    a.download = `${d.dataset}_${d.sequence}.mp4`.replace(/[^A-Za-z0-9_.-]/g, "_");
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+  } catch (e) {
+    alert("The recording failed: " + e.message + ". Pages opened from a file cannot read their images; start the demo with start_demo.py (python3 start_demo.py in this folder) and use the page it opens.");
+  } finally { try { r.enc.close(); } catch (e) {} REC.saving = false; REC.armed = false; REC.queue = []; recButton(); }
+}
 async function exportMp4() {
-  const btn = $("mp4Btn");
-  if (mp4Running) { mp4Cancel = true; return; }
-  const d = S.seq; if (!d) return;
+  if (REC.saving) return;
+  if (REC.active) { stop(); return; }                                  // stops playback, which saves the recording
+  if (REC.armed) { REC.armed = false; recButton(); return; }
+  if (!S.seq) return;
   if (!window.VideoEncoder) {
     alert(window.isSecureContext === false
       ? "Record needs a secure page: browsers only offer the video encoder on https or on localhost. Open the viewer through http://localhost (python3 start_demo.py, or an SSH tunnel to the server) and try again."
       : "This browser has no WebCodecs video encoder. Use a recent Chrome, Edge, Firefox or Safari.");
     return;
   }
-  mp4Running = true; mp4Cancel = false; stop();
-  try {
-    const Mux = await loadMuxer(), fps = 15, L = quadLayout(d, 640), W = L.W, H = L.H;
-    const cfg = { codec: "avc1.640033", width: W, height: H, bitrate: 8e6, framerate: fps };
-    const sup = await VideoEncoder.isConfigSupported(cfg); if (!sup.supported) throw new Error("H.264 encoding of " + W + "x" + H + " is not supported here");
-    const muxer = new Mux.Muxer({ target: new Mux.ArrayBufferTarget(), video: { codec: "avc", width: W, height: H }, fastStart: "in-memory" });
-    let err = null;
-    const enc = new VideoEncoder({ output: (c, m) => muxer.addVideoChunk(c, m), error: e => { err = e; } });
-    enc.configure(cfg);
-    // windows with the warp overlay switched on get their own off-screen warper at the size of the recording
-    const wp = QPANELS.map(p => { if (p.key !== "gt" || !S.warpOn || !S.initImg) return null; try { const c = document.createElement("canvas"); c.width = L.tileW; c.height = L.tileH; const w = new Warper(c); if (!w.ok) return null; w.setImage(S.initImg); return { c, w, from: d.layers.original ? "original" : "rerun" }; } catch (e) { return null; } });
-    const cv = document.createElement("canvas"); cv.width = W; cv.height = H; const g = cv.getContext("2d");
-    for (let i = 0; i < d.frames; i++) {
-      if (mp4Cancel || S.seq !== d) throw new Error("cancelled");
-      if (err) throw err;
-      btn.textContent = `Record ${Math.round(100 * i / d.frames)}% (click to stop)`;
-      const im = await loadImage(frameSrc(i));
-      for (const x of wp) if (x) { const q = d.layers[x.from] ? d.layers[x.from][i] : null, Hm = q && d.init_quad ? homography(d.init_quad, q) : null; if (!Hm || !x.w.draw(Hm, d.width, d.height, d.init_quad, false, 0.55, true)) x.w.clear(); }
-      await drawComposite(g, d, i, im, L, k => wp[k] ? wp[k].c : null);
-      const vf = new VideoFrame(cv, { timestamp: Math.round(i * 1e6 / fps), duration: Math.round(1e6 / fps) });
-      enc.encode(vf, { keyFrame: i % 60 === 0 }); vf.close();
-      while (enc.encodeQueueSize > 6) await new Promise(r => setTimeout(r, 5));
-    }
-    btn.textContent = "Record: finishing";
-    await enc.flush(); if (err) throw err; muxer.finalize();
-    const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([muxer.target.buffer], { type: "video/mp4" }));
-    a.download = `${d.dataset}_${d.sequence}.mp4`.replace(/[^A-Za-z0-9_.-]/g, "_");
-    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 10000);
-  } catch (e) {
-    if (String(e.message) !== "cancelled") alert("The recording failed: " + e.message + ". Pages opened from a file cannot read their images; start the demo with start_demo.py (python3 start_demo.py in this folder) and use the page it opens.");
-  } finally { mp4Running = false; btn.textContent = "Record"; }
+  REC.armed = true; recButton();
+  if (S.playing) { try { await recStart(); } catch (e) { REC.armed = false; recButton(); alert("The recording failed: " + e.message); } }
 }
 $("mp4Btn").onclick = exportMp4;
 $("paperBtn").onclick = () => { if (S.paper) { stop(); setFrame(S.paper.frame); } };

@@ -51,7 +51,7 @@ SAM-H rows are not produced by this code.
 
 ## Viewer
 
-`FlatSAM_demo/viewer_demo/` is a self-contained browser viewer with 12 sequences of the six benchmarks, the sequences
+`FlatSAM_demo/viewer_demo/` is a self-contained browser viewer with 12 sequences of five benchmarks (all but MPOT-3K), the sequences
 of the paper's figures. Frame by frame it shows the ground truth, the SAM3 mask, the first and the refinement pass of
 FlatSAM with their keypoint and mask branches, and WOFTSAM and SAM-H. It needs only Python 3, no installation or GPU:
 

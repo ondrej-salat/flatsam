@@ -6,14 +6,14 @@ Example (run from the viewer_demo folder; start_demo.py shows the result):
 
     python3 tools/add_sequence.py --dataset MyData --sequence clip1 \
         --frames /path/to/clip1_frames \
-        --refinement clip1_FLATSAM.txt \
-        --first-pass clip1_first_pass.txt \
+        --first-pass results/flatsam_final/MyData/clip1.txt \
+        --refinement clip1_refinement.txt \
         --gt clip1_gt.txt --woftsam clip1_woftsam.txt --samh clip1_samh.txt
 
 Every prediction file has one row per frame with eight numbers (x1 y1 x2 y2 x3 y3 x4 y4, the four corners in the
 same order as the annotation); row 0 is the frame the tracker was initialised on. Rows with NaN or missing rows mean
-"no pose in this frame". This is the format the tracker of this repository writes (<sequence>_FLATSAM.txt).
-Only --refinement is required (it is the FlatSAM output). Layers you do not give are shown as unavailable.
+"no pose in this frame". This is the format the tracker of this repository writes (run.py: results/<config>/<DATASET>/<sequence>.txt, the first pass).
+Give --first-pass (what run.py writes) and/or --refinement (the refinement pass). Layers you do not give are shown as unavailable.
 Scores (P@5/10/15, in pixels and relative to the target size, and IoU) are computed against --gt when it is given;
 they use the corner-RMS error and the same definitions as the paper.
 Use --video clip.mp4 instead of --frames to cut the frames from a video.
@@ -46,7 +46,7 @@ def load_poses(path: Path, count: int) -> list[np.ndarray | None]:
     out: list[np.ndarray | None] = [None] * count
     for i in range(min(count, len(values))):
         q = values[i].reshape(4, 2).T
-        if np.isfinite(q).all() and np.abs(q).max() < 1e6:
+        if np.isfinite(q).all() and 0 < np.abs(q).max() < 1e6:      # NaN rows and all-zero rows (unannotated frames) are "no pose"
             out[i] = q
     return out
 
@@ -109,8 +109,9 @@ def main():
     src = ap.add_mutually_exclusive_group(required=True)
     src.add_argument("--frames", type=Path, help="folder with the frames in order (jpg/png)")
     src.add_argument("--video", type=Path)
-    ap.add_argument("--refinement", type=Path, required=True, help="FlatSAM output poses (refinement pass)")
-    ap.add_argument("--first-pass", type=Path, dest="first_pass")
+    ap.add_argument("--refinement", type=Path, help="poses of the refinement pass (the final FlatSAM output)")
+    ap.add_argument("--first-pass", type=Path, dest="first_pass", help="poses of the first pass (what run.py writes for the config flatsam_final)")
+    ap.add_argument("--debug", type=Path, help="<sequence>_debug.npz that run.py writes next to the first-pass poses: fills the keypoint and mask branch layers, the chosen branch and the inlier counts of the first pass")
     ap.add_argument("--gt", type=Path, help="ground-truth poses; frames without a valid row are not scored")
     ap.add_argument("--woftsam", type=Path)
     ap.add_argument("--samh", type=Path)
@@ -121,10 +122,13 @@ def main():
     if a.dataset == "PlanarTrack":
         sys.exit('the page hides the dataset name "PlanarTrack"; use another name')
 
+    if a.refinement is None and a.first_pass is None:
+        sys.exit("give --first-pass (what run.py writes) and/or --refinement")
+    main_poses = a.refinement or a.first_pass
     imgs = read_frames(a)
     first_img = cv2.imread(str(imgs[0]), cv2.IMREAD_COLOR)
     H0, W0 = first_img.shape[:2]
-    count = min(len(imgs), len(np.atleast_2d(np.loadtxt(a.refinement))))
+    count = min(len(imgs), len(np.atleast_2d(np.loadtxt(main_poses))))
     imgs = imgs[:count]
     rot = H0 > W0 and not a.no_rotate     # portrait frames are shown turned 90 degrees clockwise, like in the full viewer
 
@@ -133,11 +137,24 @@ def main():
         path = getattr(a, opt)
         if path is not None:
             quads[lid] = load_poses(path, count)
-    quads["gated"] = quads["rerun"]            # the page always shows the refinement pass as the output
+    quads["gated"] = quads["rerun"]            # the page shows the refinement pass as the output (empty when only the first pass is given)
     gt = load_poses(a.gt, count) if a.gt else [None] * count
-    init = gt[0] if gt[0] is not None else quads["rerun"][0]
+    init = gt[0] if gt[0] is not None else (quads["rerun"] or quads["original"])[0]
     if init is None:
-        sys.exit("row 0 of --refinement (or --gt) must be a valid pose: it is the initialisation")
+        sys.exit("row 0 of the poses file (or of --gt) must be a valid pose: it is the initialisation")
+    o_sel, o_inl = [None] * count, [None] * count
+    if a.debug:                                 # first-pass telemetry: branch homographies relative to the initial corners, chosen branch, inliers
+        dbg = np.load(a.debug, allow_pickle=True)
+        homog = np.vstack([init, np.ones((1, 4))])
+        for lid, key in (("o_loma", "loma_H"), ("o_samh", "samh_H")):
+            quads[lid] = [None] * count
+            for j, f in enumerate(dbg["frame_idx"].astype(int)):
+                if 0 < f < count and np.isfinite(dbg[key][j]).all():
+                    w = dbg[key][j] @ homog
+                    quads[lid][f] = w[:2] / w[2:3]
+        for j, f in enumerate(dbg["frame_idx"].astype(int)):
+            if 0 < f < count:
+                o_sel[f], o_inl[f] = str(dbg["selected"][j]), int(dbg["n_inliers"][j])
     gt_ok = [g is not None for g in gt]
     gt_ok[0] = False                            # frame 0 is the initialisation and is never scored
     shape = (H0, W0)
@@ -170,7 +187,7 @@ def main():
         stats["gated"] = stats["rerun"]
 
     ovr = [None] * count                        # IoU of first pass and refinement pass
-    if quads["original"] is not None:
+    if quads["original"] is not None and quads["rerun"] is not None:
         ovr = [None] + [r(polygon_iou(quads["original"][i], quads["rerun"][i], shape)) for i in range(1, count)]
     vals = [v for v in ovr if v is not None]
 
@@ -208,7 +225,7 @@ def main():
         "init_quad": quad_json(rq(init)), "layers": layers, "layer_notes": notes,
         "gt_note": "GT: provided with the sequence" if a.gt else "No ground truth for this sequence (no scores)",
         "gt_src": [0] * count, "mask_o": None, "mask_n": None, "mask_o_iou": None, "mask_n_iou": None, "mask_n_iou_native": None,
-        "err": err, "err_rel": err_rel, "gt_iou": iou, "o_selected": none, "n_selected": none, "o_inliers": none, "n_inliers": none,
+        "err": err, "err_rel": err_rel, "gt_iou": iou, "o_selected": o_sel, "n_selected": none, "o_inliers": o_inl, "n_inliers": none,
         "warp_valid": [True] * count, "gate_used": [False] * count, "iou": ovr, "layer_stats": stats, "agreement": {"original": None, "rerun": None},
         "stats": {"mean_iou": r(float(np.mean(vals))) if vals else None, "max_iou": r(float(np.max(vals))) if vals else None,
                   "min_iou": r(float(np.min(vals))) if vals else None,
@@ -225,9 +242,9 @@ def main():
     man = json.loads(text[text.index("(") + 1:text.rindex(")")])
     row = {k: None for k in (man["sequences"][0] if man["sequences"] else {})}
     g = lambda layer, k: stats.get(layer, {}).get(k)
-    row.update({"dataset": a.dataset, "sequence": a.sequence, "tier": "added", "frames": count, "has_branches": False, "has_masks": False,
+    row.update({"dataset": a.dataset, "sequence": a.sequence, "tier": "added", "frames": count, "has_branches": bool(a.debug), "has_masks": False,
                 "has_woft": quads["woft"] is not None, "has_samh_baseline": quads["samhb"] is not None, "rotated": bool(rot),
-                "has_rerun": True, "has_gated": True, "mean_iou": payload["stats"]["mean_iou"], "max_iou": payload["stats"]["max_iou"],
+                "has_rerun": quads["rerun"] is not None, "has_gated": quads["rerun"] is not None, "mean_iou": payload["stats"]["mean_iou"], "max_iou": payload["stats"]["max_iou"],
                 "layers_present": sum(quads[k] is not None for k in ("original", "rerun", "woft", "samhb")), "layers_total": 9,
                 "woft_p15": g("woft", "p15"), "woft_p15_rel": g("woft", "p15_rel"), "samhb_p15": g("samhb", "p15"), "samhb_p15_rel": g("samhb", "p15_rel"),
                 "reused": False, "lookalike": None, "accepted_share": None})
@@ -242,7 +259,8 @@ def main():
     man["sequences"] = [q for q in man["sequences"] if not (q["dataset"] == a.dataset and q["sequence"] == a.sequence)] + [row]
     mpath.write_text("window.__flatsamManifest(" + json.dumps(man, separators=(",", ":"), allow_nan=False) + ");\n")
     print(f"added {a.dataset}/{a.sequence}: {count} frames{' (turned 90 degrees)' if rot else ''}; "
-          f"refinement-pass P@15 {g('rerun', 'p15')} px / {g('rerun', 'p15_rel')} rel. Reload the page.")
+          f"{'refinement' if quads['rerun'] is not None else 'first'}-pass P@15 {g('rerun' if quads['rerun'] is not None else 'original', 'p15')} px / "
+          f"{g('rerun' if quads['rerun'] is not None else 'original', 'p15_rel')} rel. (frames without ground truth are not scored). Reload the page.")
 
 
 if __name__ == "__main__":

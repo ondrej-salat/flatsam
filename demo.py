@@ -19,7 +19,7 @@ import sys
 from pathlib import Path
 from typing import Any, Iterator
 
-from flatsam2.path_config import REPO_ROOT, paths  # loads .env before torch / HF imports
+from flatsam.path_config import DEFAULT_CONFIG, REPO_ROOT, paths  # loads .env before torch / HF imports
 
 
 def run(cmd: list[str]) -> None:
@@ -45,7 +45,7 @@ def build_config(args: argparse.Namespace):
     Raises:
         ValueError: on a malformed ``--set`` or an unknown key.
     """
-    from flatsam2.config import load_config_from_file
+    from flatsam.config import load_config_from_file
 
     cfg = load_config_from_file(args.config)
     if not args.set:
@@ -76,7 +76,7 @@ def config_file(args: argparse.Namespace) -> Path:
     """
     if not args.set:
         return args.config
-    from flatsam2.reproducibility import _config_to_python
+    from flatsam.reproducibility import _config_to_python
 
     cfg = build_config(args)
     tag = hashlib.sha1(cfg.model_dump_json().encode()).hexdigest()[:8]
@@ -108,8 +108,8 @@ def demo_video(args: argparse.Namespace) -> None:
     import numpy as np
     from einops import rearrange
 
-    from flatsam2.datasets import warp_corners
-    from flatsam2.tracker import FlatSAMTracker
+    from flatsam.datasets import warp_corners
+    from flatsam.tracker import FlatSAMTracker
     from visualize import COLOR_OUTPUT, OUTPUT_LABEL, draw_legend, draw_output
 
     cap = cv2.VideoCapture(str(args.video))
@@ -138,9 +138,7 @@ def demo_video(args: argparse.Namespace) -> None:
 
 def main() -> None:
     common = argparse.ArgumentParser(add_help=False)
-    common.add_argument("--config", type=Path,
-                        default=Path(os.environ.get("DEMO_CONFIG",
-                                                    "configs/tracker/flatsam_final.py")),
+    common.add_argument("--config", type=Path, default=DEFAULT_CONFIG,
                         help="Base tracker config (default: DEMO_CONFIG from .env).")
     common.add_argument("--set", action="append", default=[], metavar="KEY=VALUE",
                         help="Override one config value, repeatable; keys from `params`.")

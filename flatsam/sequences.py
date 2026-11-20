@@ -76,6 +76,76 @@ def pt_sequences(base_dir: Path, split: Optional[str] = None) -> List[str]:
     return sorted([p.stem for p in sequences_dir.glob("*") if p.is_dir()])
 
 
+def corners_txt_sequences(base_dir: Path, seq_subdir: str, gt_subdir: str) -> List[str]:
+    """Get sequence names for a POIC / TMT / UCSB dataset.
+
+    A sequence counts only when it has both a frame directory and an annotation
+    file: the UCSB packaging keeps auxiliary directories (``OptGT``, ``SSM``, …)
+    and stray annotation files alongside the 96 real sequences, and TMT ships a
+    handful of annotations whose frames were never published.
+
+    Args:
+        base_dir: Dataset root directory.
+        seq_subdir: Registry ``seq_subdir`` for the dataset (``''`` = the root).
+        gt_subdir: Registry ``gt_subdir`` for the dataset.
+
+    Returns:
+        Sorted list of sequence names.
+
+    Raises:
+        ValueError: If either directory is missing.
+    """
+    seq_dir = base_dir / seq_subdir if seq_subdir else base_dir
+    gt_dir = base_dir / gt_subdir if gt_subdir else base_dir
+    if not seq_dir.exists():
+        raise ValueError(f"Sequence directory not found: {seq_dir}")
+    if not gt_dir.exists():
+        raise ValueError(f"Annotation directory not found: {gt_dir}")
+
+    annotated = {p.stem for p in gt_dir.glob("*.txt")}
+    return sorted(p.name for p in seq_dir.glob("*") if p.is_dir() and p.name in annotated)
+
+
+def mpot_sequences(base_dir: Path, split: Optional[str] = None) -> List[str]:
+    """Get the MPOT-3K tracking tasks, one per planar instance.
+
+    MPOT-3K annotates several planar objects per video, so one video yields as
+    many tracking tasks as it has instances; each task is named
+    ``'<sequence>__<instance>'``.  Instance ids come from ``gt/gt_init.txt``,
+    which lists every instance together with the frame it is initialised on.
+
+    Args:
+        base_dir: MPOT-3K root directory.
+        split: ``'test'`` (default), ``'val'`` or ``'train'``.
+
+    Returns:
+        List of task names, ordered by sequence then instance id.
+
+    Raises:
+        ValueError: If the split list is missing.
+    """
+    if split is None:
+        split = "test"
+
+    split_file = base_dir / "list" / f"{split}.txt"
+    if not split_file.exists():
+        raise ValueError(f"MPOT-3K split file not found: {split_file}")
+
+    tasks: List[str] = []
+    for seq_name in load_sequence_list(split_file):
+        init_file = base_dir / split / seq_name / "gt" / "gt_init.txt"
+        if not init_file.exists():
+            raise ValueError(f"MPOT-3K initialisation file not found: {init_file}")
+        instances = set()
+        for line in init_file.read_text().splitlines():
+            fields = [f for f in line.strip().split(",") if f != ""]
+            if len(fields) >= 10:
+                instances.add(int(float(fields[1])))
+        tasks.extend(f"{seq_name}__{instance}" for instance in sorted(instances))
+
+    return tasks
+
+
 def get_sequences(
     dataset: str,
     base_dir: Path,
@@ -95,12 +165,13 @@ def get_sequences(
     intersection (preserving the subset-file order).
 
     Args:
-        dataset: Dataset key — any value from :data:`~flatsam2.registry.CLI_CHOICES`
+        dataset: Dataset key — any value from :data:`~flatsam.registry.CLI_CHOICES`
             (e.g. ``'pot'``, ``'planartrack'``, ``'planartrack-initfix'``, ``'pti'``).
         base_dir: Dataset root directory.
         sequences: Explicit list of sequence names to process.
         subset_file: Path to a subset file (one sequence name per line).
-        split: Dataset split for PlanarTrack (``'train'`` or ``'test'``).
+        split: Dataset split for PlanarTrack (``'train'`` or ``'test'``) or MPOT-3K
+            (``'test'`` by default, ``'val'``, ``'train'``).
             Ignored for datasets where ``uses_split`` is ``False``.
 
     Returns:
@@ -133,12 +204,19 @@ def get_sequences(
         ds_info = DATASETS[dataset]
         if ds_info.gt_loader == "pot":
             pool = pot_sequences(base_dir)
+        elif ds_info.gt_loader == "corners_txt":
+            pool = corners_txt_sequences(base_dir, ds_info.seq_subdir, ds_info.gt_subdir)
+        elif ds_info.gt_loader == "mpot":
+            pool = mpot_sequences(base_dir, split)
         else:
             pool = pt_sequences(base_dir, split)
 
     # 3. Apply split filter when pool came from explicit sequences
     if dataset in DATASETS and DATASETS[dataset].uses_split and split is not None and sequences is not None:
-        split_pool = set(pt_sequences(base_dir, split))
+        if DATASETS[dataset].gt_loader == "mpot":
+            split_pool = set(mpot_sequences(base_dir, split))
+        else:
+            split_pool = set(pt_sequences(base_dir, split))
         pool = [s for s in pool if s in split_pool]
 
     if not pool:

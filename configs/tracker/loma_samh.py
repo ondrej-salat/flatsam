@@ -1,6 +1,6 @@
 """Online LoMa + SAM-H inlier-choice tracker."""
 
-from flatsam2.config import (
+from flatsam.config import (
     HoughConfig,
     LoMaPathConfig,
     SamplingCfg,

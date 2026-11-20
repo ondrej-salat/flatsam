@@ -115,7 +115,7 @@ class SymmetryConfig(BaseModel):
             "seven parameters and a second network, gated to fire only when "
             "recovering from lost because it is expensive. 'matches' scores the "
             "four shifts by how much of the keypoint matcher's raw "
-            "correspondence set each explains (flatsam2.match_naming) and takes "
+            "correspondence set each explains (flatsam.match_naming) and takes "
             "the best. It needs no extra model, is cheap enough to run every "
             "frame -- so only_when_lost, n_correspondences_enough and the four "
             "DINO knobs stop applying."
@@ -552,7 +552,7 @@ def compute_output_dir(
     """Compute structured output directory path.
 
     Creates a directory structure: ``base_output_dir / config_name / dataset_label``
-    where ``dataset_label`` comes from :data:`~flatsam2.registry.DATASETS`.
+    where ``dataset_label`` comes from :data:`~flatsam.registry.DATASETS`.
 
     Args:
         base_output_dir: Top-level output directory.

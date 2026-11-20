@@ -10,7 +10,7 @@ Usage
 -----
 Instrument hot paths with the module-level singleton::
 
-    from flatsam2.profiling import profiler
+    from flatsam.profiling import profiler
     with profiler.section("sam3"):
         seg_mask = self.segmenter.track(frame)
 

@@ -9,16 +9,16 @@ import numpy as np
 import cv2
 from einops import rearrange
 
-from flatsam2.datasets import (
+from flatsam.datasets import (
     CLI_CHOICES,
     DATASETS,
     make_gt_loader,
     make_image_paths,
     warp_corners,
 )
-from flatsam2.metrics import alignment_error
-from flatsam2.path_config import paths
-from flatsam2.config import compute_output_dir
+from flatsam.metrics import alignment_error
+from flatsam.path_config import DEFAULT_CONFIG, paths
+from flatsam.config import compute_output_dir
 
 
 # BGR colours; the legend lists only the layers present in a given video
@@ -108,7 +108,7 @@ def visualize_sequence(dataset: str,
     """Render a video with tracking overlays for one sequence.
 
     Args:
-        dataset: Any accepted dataset CLI key (see flatsam2.registry)
+        dataset: Any accepted dataset CLI key (see flatsam.registry)
         base_results_dir: Top-level directory containing tracking results
         sequence: Sequence name to visualize
         base_dir: Dataset base directory (optional, uses defaults)
@@ -231,10 +231,10 @@ def visualize_sequence(dataset: str,
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(prog='flatsam2-visualize')
+    parser = argparse.ArgumentParser(prog='flatsam-visualize')
     parser.add_argument('dataset', choices=CLI_CHOICES, help='Dataset to visualize')
     parser.add_argument('sequence', help='Sequence name to visualize')
-    parser.add_argument('--config', type=Path, help='Path to config file (for directory structure)')
+    parser.add_argument('--config', type=Path, default=DEFAULT_CONFIG, help='Path to config file (for directory structure; default: the final method)')
     parser.add_argument('--base-dir', type=Path, help='Dataset base directory (optional, uses default if not specified)')
     parser.add_argument('--src', type=Path, help='Top-level directory containing tracking results (defaults to output dir computed from dataset/config)',
                         default=paths.OUTPUT_DIRECTORY)

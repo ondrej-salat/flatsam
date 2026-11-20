@@ -1,7 +1,7 @@
 """Dataset registry — single source of truth for all supported dataset variants.
 
 This module is intentionally free of intra-package imports so that both
-:mod:`flatsam2.sequences` (stdlib-only) and :mod:`flatsam2.datasets` can
+:mod:`flatsam.sequences` (stdlib-only) and :mod:`flatsam.datasets` can
 import from it without creating circular dependencies.
 
 Attributes:
@@ -26,14 +26,25 @@ class DatasetInfo:
             (e.g. ``'PlanarTrackInitfix'``).
         short_label: Abbreviated name used in table columns (e.g. ``'PTi'``).
         base_dir_attr: Attribute name on
-            :class:`~flatsam2.path_config.PathConfig` that holds the dataset
+            :class:`~flatsam.path_config.PathConfig` that holds the dataset
             root directory (e.g. ``'PT_BASE'``).
         gt_loader: Which GT loading strategy to use:
-            ``'pot'`` → :func:`~flatsam2.datasets.pot_load_gt`,
-            ``'pt'``  → :func:`~flatsam2.datasets.pt_load_gt`,
-            ``'pti'`` → :func:`~flatsam2.datasets.pti_load_gt`
-            (requires an ``initfix_dir`` at call time).
+            ``'pot'`` → :func:`~flatsam.datasets.pot_load_gt`,
+            ``'pt'``  → :func:`~flatsam.datasets.pt_load_gt`,
+            ``'pti'`` → :func:`~flatsam.datasets.pti_load_gt`
+            (requires an ``initfix_dir`` at call time),
+            ``'corners_txt'`` → :func:`~flatsam.datasets.corners_txt_load_gt`
+            (POIC / UCSB, which share one annotation format and differ only in
+            where the frames and the annotations live — see ``seq_subdir`` /
+            ``gt_subdir``),
+            ``'mpot'`` → :func:`~flatsam.datasets.mpot_load_gt` (MPOT-3K,
+            whose sequences hold several planar objects at once; one tracking
+            task is one ``<sequence>__<instance>`` pair).
         uses_split: Whether this dataset supports train/test splits.
+        seq_subdir: Directory holding the per-sequence frame folders, relative
+            to the dataset root (``'corners_txt'`` only; ``''`` = the root).
+        gt_subdir: Directory holding the ``<sequence>.txt`` annotation files,
+            relative to the dataset root (``'corners_txt'`` only).
     """
 
     key: str
@@ -41,8 +52,10 @@ class DatasetInfo:
     label: str
     short_label: str
     base_dir_attr: str
-    gt_loader: Literal["pot", "pt", "pti"]
+    gt_loader: Literal["pot", "pt", "pti", "corners_txt", "mpot"]
     uses_split: bool
+    seq_subdir: str = ""
+    gt_subdir: str = ""
 
 
 # ---------------------------------------------------------------------------
@@ -56,6 +69,16 @@ _DATASET_DEFS: Tuple[DatasetInfo, ...] = (
         label="POT-210",
         short_label="POT",
         base_dir_attr="POT_BASE",
+        gt_loader="pot",
+        uses_split=False,
+    ),
+    # Original annotation only: POT-280 has no re-annotation.
+    DatasetInfo(
+        key="pot280",
+        aliases=("pot-280",),
+        label="POT-280",
+        short_label="POT280",
+        base_dir_attr="POT280_BASE",
         gt_loader="pot",
         uses_split=False,
     ),
@@ -75,6 +98,38 @@ _DATASET_DEFS: Tuple[DatasetInfo, ...] = (
         short_label="PTi",
         base_dir_attr="PT_BASE",
         gt_loader="pti",
+        uses_split=True,
+    ),
+    DatasetInfo(
+        key="poic",
+        aliases=(),
+        label="POIC",
+        short_label="POIC",
+        base_dir_attr="POIC_BASE",
+        gt_loader="corners_txt",
+        uses_split=False,
+        seq_subdir="sequences",
+        gt_subdir="gt",
+    ),
+    # UCSB with the corrected ground truth (ucsb_mapped_gt.zip): the original GT is ~20 px off on the raw frames.
+    DatasetInfo(
+        key="ucsb",
+        aliases=(),
+        label="UCSB",
+        short_label="UCSB",
+        base_dir_attr="UCSB_BASE",
+        gt_loader="corners_txt",
+        uses_split=False,
+        seq_subdir="",
+        gt_subdir="",
+    ),
+    DatasetInfo(
+        key="mpot",
+        aliases=("mpot-3k",),
+        label="MPOT-3K",
+        short_label="MPOT",
+        base_dir_attr="MPOT_BASE",
+        gt_loader="mpot",
         uses_split=True,
     ),
 )

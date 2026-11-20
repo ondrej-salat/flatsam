@@ -15,6 +15,7 @@ venv/
 /data/*
 !/data/ucsb_*.zip
 !/data/pot210_reannotation.zip
+!/data/planartrack_init_reannotation.zip
 *.mp4
 
 # IDE

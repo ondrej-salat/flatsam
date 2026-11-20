@@ -96,6 +96,10 @@ Datasets go to `data/` by default (the `*_BASE` paths in `.env`); `--base-dir` o
 
 ### 1. Datasets
 
+The POT-210 re-annotation of [WOFT](https://github.com/serycjon/WOFT) and the PlanarTrack initial corners of
+[WOFTSAM](https://github.com/serycjon/WOFTSAM) are redistributed in `data/` under their CC BY-NC-SA 4.0 license
+(the `LICENSE` file in each zip).
+
 **[POT-210](https://liangp.github.io/data/pot280/)** (objects V01–V30 of POT-280); the re-annotation of WOFT is in
 `data/pot210_reannotation.zip`:
 
@@ -111,11 +115,10 @@ python evaluate.py pot --results-name warp --original-annotation  # all column
 
 **[PlanarTrack](https://hengfan2010.github.io/projects/PlanarTrack/)**: download and unpack to
 `data/PlanarTrack/PlanarTrack-Data/` (`annos/`, `sequences/`, `training-test-splits/`), then add the re-annotated
-initial corners:
+initial corners of WOFTSAM from `data/planartrack_init_reannotation.zip`:
 
 ```bash
-git clone --depth 1 https://github.com/serycjon/WOFTSAM
-cp -r WOFTSAM/PlanarTrack_init_reannotation data/PlanarTrack/
+unzip -q data/planartrack_init_reannotation.zip -d data/PlanarTrack
 
 python run.py pti --split test --save-masks
 python refine.py pti

@@ -141,7 +141,7 @@ python refine.py poic
 python evaluate.py poic --results-name warp
 ```
 
-**[UCSB](https://web.archive.org/web/20160608015230/http://ilab.cs.ucsb.edu/tracking_dataset_ijcv/)**: the frames are
+**UCSB**: the frames are
 no longer publicly available; they can be obtained from the dataset's authors. Unpack them to `data/UCSB/<sequence>/`
 (e.g. `data/UCSB/bricks_motion1/frame00001.jpg`), then add the corrected ground truth from `data/ucsb_mapped_gt.zip`:
 
